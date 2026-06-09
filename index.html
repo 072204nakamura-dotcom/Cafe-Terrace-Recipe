@@ -5,20 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="レシピ管理">
-<meta name="color-scheme" content="light only">
-<meta name="supported-color-schemes" content="light">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>レシピ管理 | Café照</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;700;800&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-/* ダークモード対策（強制ライトモード） */
-@media (prefers-color-scheme: dark) {
-  html, body { background: #eae5dc !important; color: #1c1612 !important; color-scheme: light !important; }
-}
 :root{--ink:#1c1612;--bg:#eae5dc;--cream:#f8f4ed;--card:#fff;--gd:#2a5c3f;--gm:#4a8c62;--gl:#c8e6d0;--gxl:#f0f9f3;--gold:#b8902a;--gold-l:#fdf0d0;--red:#c0392b;--border:#ddd5c2;--line:#e8e0d0;--mid:#7a6e5e;--light:#f5f0e8;--shadow:rgba(28,22,18,.10)}
 body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var(--ink);min-height:100vh}
 .page{max-width:520px;margin:0 auto;padding:0 0 calc(80px + env(safe-area-inset-bottom,10px))}
@@ -1065,13 +1056,60 @@ function renderInvResult(items){
   document.getElementById('inv-result-wrap').style.display='';
 }
 function applyInvoice(){
-  const s=load();
+  const s = load();
+  let updated = 0, added = 0;
   (invState.items||[]).forEach(item=>{
-    const idx=s.ingredients.findIndex(i=>i.name.replace(/\s/g,'')===item.name.replace(/\s/g,'')||i.name.includes(item.name)||item.name.includes(i.name));
-    if(idx>=0){ s.ingredients[idx].unitPrice=item.unitPrice; s.ingredients[idx].unit=item.unit||s.ingredients[idx].unit; if(item.supplier) s.ingredients[idx].supplier=item.supplier; }
-    else{ const maxId=s.ingredients.reduce((m,i)=>Math.max(m,i.id),0); s.ingredients.push({id:maxId+1,name:item.name,supplier:item.supplier||'',unitPrice:item.unitPrice,unit:item.unit||'g',taxRate:item.taxRate||0.08,yieldRate:100,category:'その他'}); }
+    if(!item || !item.name) return;
+    // 既存食材を検索（スペース除去・部分一致）
+    const itemName = item.name.replace(/\s/g,'');
+    const idx = s.ingredients.findIndex(i => {
+      if(!i.name) return false;
+      const iName = i.name.replace(/\s/g,'');
+      return iName === itemName || iName.includes(itemName) || itemName.includes(iName);
+    });
+    if(idx >= 0){
+      // 既存食材の単価を更新
+      s.ingredients[idx].unitPrice = item.unitPrice;
+      if(item.unit) s.ingredients[idx].unit = item.unit;
+      if(item.supplier) s.ingredients[idx].supplier = item.supplier;
+      updated++;
+    } else {
+      // 新規食材として先頭に追加（すぐ見えるように）
+      const maxId = s.ingredients.reduce((m,i) => Math.max(m, i.id||0), 0);
+      s.ingredients.unshift({
+        id: maxId+1,
+        name: item.name,
+        supplier: item.supplier || '',
+        unitPrice: item.unitPrice || 0,
+        unit: item.unit || 'g',
+        taxRate: item.taxRate || 0.08,
+        yieldRate: 100,
+        category: 'その他'
+      });
+      added++;
+    }
   });
-  saveAll(); resetInvoice(); switchTab('ing'); renderIngs(); showToast('✅ 食材マスターを更新しました');
+  // _store と localStorage の両方を確実に更新
+  _store = s;
+  localStorage.setItem('cafe_teru_v2', JSON.stringify(s));
+  // GASに食材だけを送信
+  if(GAS_URL){
+    try{
+      fetch(GAS_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: {'Content-Type':'text/plain'},
+        body: JSON.stringify({action:'save_ingredients', data:{ingredients: s.ingredients}})
+      });
+    } catch(e){}
+  }
+  resetInvoice();
+  // 検索・カテゴリフィルタをリセットして全件表示
+  activeIngCatLocal = 'すべて';
+  switchTab('ing');
+  const qBox = document.getElementById('ing-q'); if(qBox) qBox.value = '';
+  document.querySelectorAll('#ing-cat-btns .cat-btn').forEach(b => b.classList.toggle('on', b.textContent==='すべて'));
+  renderIngs();
+  showToast('✅ 更新 '+updated+'件 / 新規 '+added+'件 保存しました');
 }
 function resetInvoice(){
   invState={};
