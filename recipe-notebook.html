@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>レシピ帳｜洋食だいにんぐなかむら</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ====== TOKENS ====== */
+:root{
+  --base:#F7F4EC;      /* 温かいアイボリー */
+  --paper:#FFFFFF;     /* カード */
+  --ink:#2C2A24;       /* 文字 */
+  --muted:#8E897B;     /* 補助文字 */
+  --sage:#7C8C6E;      /* くすみグリーン */
+  --sage-deep:#5E6B52;
+  --sage-soft:#EEF1E8;
+  --gold:#B89B5E;      /* ゴールド差し色 */
+  --line:#E7E2D5;      /* 罫線 */
+  --danger:#B5564A;
+  --shadow:0 2px 10px rgba(60,52,30,.06);
+  --shadow-lg:0 8px 30px rgba(60,52,30,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:var(--base);
+  color:var(--ink);
+  font-size:15px;line-height:1.7;
+  -webkit-text-size-adjust:100%;
+}
+h1,h2,h3,.disp{font-family:'Zen Maru Gothic',sans-serif;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,textarea,select{font-family:inherit;font-size:16px;color:var(--ink);}
+textarea{line-height:1.7;}
+
+/* ====== APP SHELL ====== */
+.app{max-width:680px;margin:0 auto;min-height:100%;padding-bottom:96px;}
+
+/* ヘッダー */
+.topbar{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(180deg,var(--base) 70%,rgba(247,244,236,.0));
+  padding:calc(14px + env(safe-area-inset-top)) 18px 10px;
+}
+.brand{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+.brand .leaf{width:26px;height:26px;flex:none;}
+.brand h1{font-size:1.18rem;font-weight:700;letter-spacing:.04em;}
+.brand .sub{font-size:.66rem;color:var(--muted);letter-spacing:.16em;margin-top:1px;}
+
+/* 検索 */
+.search-wrap{position:relative;margin-bottom:10px;}
+.search-wrap svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--muted);}
+.search{
+  width:100%;border:1px solid var(--line);background:var(--paper);
+  border-radius:13px;padding:11px 14px 11px 38px;font-size:15px;
+  box-shadow:var(--shadow);outline:none;transition:border-color .15s;
+}
+.search:focus{border-color:var(--sage);}
+
+/* カテゴリーチップ */
+.chips{display:flex;gap:7px;overflow-x:auto;padding:2px 2px 4px;scrollbar-width:none;-ms-overflow-style:none;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{
+  flex:none;border:1px solid var(--line);background:var(--paper);
+  color:var(--muted);border-radius:999px;padding:6px 14px;font-size:.8rem;
+  white-space:nowrap;transition:.15s;
+}
+.chip.on{background:var(--sage);color:#fff;border-color:var(--sage);font-weight:500;}
+
+/* ====== 一覧 ====== */
+.list{padding:8px 14px 0;display:flex;flex-direction:column;gap:11px;}
+.card{
+  display:flex;gap:13px;background:var(--paper);border:1px solid var(--line);
+  border-radius:15px;padding:11px;box-shadow:var(--shadow);
+  align-items:center;cursor:pointer;transition:transform .12s, box-shadow .12s;
+}
+.card:active{transform:scale(.985);}
+.card .thumb{
+  width:78px;height:78px;flex:none;border-radius:11px;object-fit:cover;
+  background:var(--sage-soft);
+}
+.card .thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--sage);}
+.card .body{min-width:0;flex:1;}
+.card .ttl{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:1.02rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .meta{display:flex;align-items:center;gap:8px;margin-top:5px;}
+.tag{font-size:.7rem;background:var(--sage-soft);color:var(--sage-deep);
+  padding:3px 10px;border-radius:999px;font-weight:500;}
+.card .snip{font-size:.78rem;color:var(--muted);margin-top:6px;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* 空の状態 */
+.empty{text-align:center;padding:70px 30px;color:var(--muted);}
+.empty .ic{width:54px;height:54px;color:var(--sage);opacity:.7;margin:0 auto 16px;}
+.empty h2{font-size:1.05rem;color:var(--ink);margin-bottom:6px;font-weight:700;}
+.empty p{font-size:.86rem;line-height:1.8;}
+
+/* ====== FAB ====== */
+.fab{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(20px + env(safe-area-inset-bottom));z-index:30;
+  background:var(--sage);color:#fff;border-radius:999px;
+  padding:14px 26px;font-size:.95rem;font-weight:700;
+  box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;
+  font-family:'Zen Maru Gothic',sans-serif;
+}
+.fab:active{background:var(--sage-deep);}
+.fab svg{width:19px;height:19px;}
+
+/* ====== 画面切替（詳細・フォーム） ====== */
+.screen{
+  position:fixed;inset:0;z-index:40;background:var(--base);
+  overflow-y:auto;display:none;flex-direction:column;
+  animation:slideup .22s ease;
+}
+.screen.show{display:flex;}
+@keyframes slideup{from{transform:translateY(14px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@media (prefers-reduced-motion:reduce){.screen.show,.sheet{animation:none;}}
+.scr-head{
+  position:sticky;top:0;background:var(--base);z-index:5;
+  display:flex;align-items:center;gap:6px;
+  padding:calc(12px + env(safe-area-inset-top)) 12px 12px;border-bottom:1px solid var(--line);
+}
+.icon-btn{padding:8px;border-radius:10px;color:var(--ink);display:flex;}
+.icon-btn:active{background:var(--sage-soft);}
+.icon-btn svg{width:22px;height:22px;}
+.scr-head .title{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;font-size:1.05rem;flex:1;}
+.scr-head .spacer{flex:1;}
+.txt-btn{color:var(--sage-deep);font-weight:700;font-size:.92rem;padding:8px 10px;}
+.txt-btn.danger{color:var(--danger);}
+.scr-body{flex:1;max-width:680px;width:100%;margin:0 auto;padding:16px 18px 60px;}
+
+/* ====== 詳細表示 ====== */
+.detail-img{width:100%;max-height:340px;object-fit:cover;border-radius:16px;background:var(--sage-soft);margin-bottom:16px;}
+.detail-img.ph{height:170px;display:flex;align-items:center;justify-content:center;color:var(--sage);}
+.detail h2{font-size:1.5rem;font-weight:700;line-height:1.4;margin-bottom:8px;}
+.detail .tagline{margin-bottom:20px;}
+.block{margin-bottom:22px;}
+.block-h{display:flex;align-items:center;gap:7px;font-family:'Zen Maru Gothic',sans-serif;
+  font-weight:700;font-size:.96rem;color:var(--sage-deep);margin-bottom:9px;}
+.block-h .bar{width:3px;height:15px;background:var(--gold);border-radius:2px;}
+.block .content{white-space:pre-wrap;font-size:.95rem;line-height:1.85;}
+.memo-box{background:var(--sage-soft);border-radius:13px;padding:14px 16px;border-left:3px solid var(--sage);}
+.memo-box .content{color:var(--sage-deep);}
+.src{font-size:.78rem;color:var(--muted);word-break:break-all;}
+.src a{color:var(--sage-deep);}
+
+/* ====== フォーム ====== */
+.field{margin-bottom:18px;}
+.field label{display:block;font-size:.82rem;font-weight:700;color:var(--sage-deep);margin-bottom:7px;}
+.field .hint{font-weight:400;color:var(--muted);font-size:.74rem;}
+.field input[type=text],.field textarea,.field select{
+  width:100%;border:1px solid var(--line);background:var(--paper);border-radius:12px;
+  padding:11px 13px;outline:none;transition:border-color .15s;
+}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--sage);}
+.field textarea{resize:vertical;min-height:96px;}
+
+/* 写真エリア */
+.photo-area{
+  border:1.5px dashed var(--line);border-radius:14px;background:var(--paper);
+  padding:18px;text-align:center;color:var(--muted);position:relative;
+}
+.photo-area .preview{width:100%;max-height:260px;object-fit:cover;border-radius:11px;display:block;}
+.photo-actions{display:flex;gap:9px;margin-top:11px;justify-content:center;flex-wrap:wrap;}
+.btn{
+  border:1px solid var(--line);background:var(--paper);border-radius:11px;
+  padding:10px 16px;font-size:.86rem;font-weight:500;display:inline-flex;align-items:center;gap:7px;
+}
+.btn svg{width:16px;height:16px;}
+.btn:active{background:var(--sage-soft);}
+.btn.primary{background:var(--sage);color:#fff;border-color:var(--sage);font-weight:700;}
+.btn.primary:active{background:var(--sage-deep);}
+.btn.ai{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:700;}
+.btn.ai:active{filter:brightness(.94);}
+
+/* カテゴリー選択行 */
+.cat-row{display:flex;gap:8px;}
+.cat-row select{flex:1;}
+
+/* 更新の記録（フォーム内） */
+.ver-row{display:flex;gap:9px;align-items:stretch;}
+.ver-num{display:flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:0 11px;flex:none;}
+.ver-num .cap{font-size:.74rem;color:var(--muted);font-weight:700;}
+.ver-num input{width:42px;border:none;background:none;padding:11px 0;text-align:center;outline:none;font-weight:700;color:var(--sage-deep);font-size:16px;}
+.ver-row textarea{flex:1;min-height:60px;}
+
+/* バージョンバッジ・更新履歴（詳細内） */
+.ver-badge{font-size:.7rem;background:var(--gold);color:#fff;padding:3px 10px;border-radius:999px;font-weight:700;}
+.hist-list{display:flex;flex-direction:column;gap:8px;}
+.hist-item{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:11px 13px;transition:background .12s;}
+.hist-top{display:flex;align-items:center;gap:9px;margin-bottom:3px;cursor:pointer;}
+.hist-ver{font-family:'Zen Maru Gothic',sans-serif;font-weight:700;color:var(--sage-deep);font-size:.86rem;}
+.hist-date{font-size:.72rem;color:var(--muted);}
+.hist-now{font-size:.66rem;background:var(--sage-soft);color:var(--sage-deep);padding:2px 8px;border-radius:999px;font-weight:700;}
+.hist-edit-btn{margin-left:auto;padding:5px;border-radius:8px;color:var(--muted);display:flex;}
+.hist-edit-btn:active{background:var(--sage-soft);}
+.hist-edit-btn svg{width:16px;height:16px;}
+.hist-note{font-size:.88rem;line-height:1.7;white-space:pre-wrap;cursor:pointer;}
+.hist-note.none{color:var(--muted);font-size:.8rem;}
+.hist-ing{display:none;margin-top:11px;padding-top:11px;border-top:1px dashed var(--line);}
+.hist-ing.open{display:block;}
+.hist-ing-h{font-size:.74rem;font-weight:700;color:var(--gold);margin-bottom:6px;letter-spacing:.04em;}
+.hist-ing-body{white-space:pre-wrap;font-size:.88rem;line-height:1.8;background:var(--base);border-radius:9px;padding:10px 12px;}
+.hist-use{width:100%;justify-content:center;margin-top:9px;font-size:.8rem;padding:9px;}
+.hist-toggle{width:100%;text-align:center;font-size:.74rem;color:var(--muted);padding:8px 0 2px;margin-top:2px;}
+
+/* モーダル内のボタン列・入力 */
+.modal .btn-row{display:flex;gap:9px;}
+.modal .btn-row .btn{width:auto;flex:1;justify-content:center;}
+.modal .btn-row .btn.mini{flex:none;}
+.btn.danger-btn{color:var(--danger);border-color:#E8D3CF;}
+.modal .m-field{margin-bottom:14px;text-align:left;}
+.modal .m-field label{display:block;font-size:.8rem;font-weight:700;color:var(--sage-deep);margin-bottom:6px;}
+.modal .m-field input,.modal .m-field textarea{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:11px;padding:10px 12px;outline:none;}
+.modal .m-field textarea{min-height:80px;resize:vertical;line-height:1.7;}
+
+/* 保存バー */
+.save-bar{
+  position:sticky;bottom:0;background:var(--base);border-top:1px solid var(--line);
+  padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+  display:flex;gap:10px;max-width:680px;margin:0 auto;width:100%;
+}
+.save-bar .btn{flex:1;justify-content:center;padding:13px;font-size:.95rem;}
+
+/* ====== トースト・モーダル ====== */
+.toast{
+  position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:11px;
+  font-size:.85rem;z-index:90;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.modal-bg{position:fixed;inset:0;background:rgba(40,36,28,.5);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:24px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--paper);border-radius:18px;padding:24px 22px;max-width:380px;width:100%;
+  box-shadow:var(--shadow-lg);text-align:center;}
+.modal .mic{width:46px;height:46px;color:var(--gold);margin:0 auto 14px;}
+.modal h3{font-size:1.1rem;font-weight:700;margin-bottom:10px;}
+.modal p{font-size:.88rem;color:var(--muted);line-height:1.8;margin-bottom:20px;}
+.modal .btn{width:100%;justify-content:center;padding:12px;}
+
+/* 設定シート */
+.sheet-bg{position:fixed;inset:0;background:rgba(40,36,28,.4);z-index:80;display:none;align-items:flex-end;}
+.sheet-bg.show{display:flex;}
+.sheet{background:var(--paper);width:100%;max-width:680px;margin:0 auto;
+  border-radius:20px 20px 0 0;padding:10px 18px calc(24px + env(safe-area-inset-bottom));animation:slideup .2s ease;}
+.sheet .grip{width:38px;height:4px;background:var(--line);border-radius:99px;margin:6px auto 16px;}
+.sheet h3{font-size:1rem;font-weight:700;margin-bottom:4px;}
+.sheet p{font-size:.78rem;color:var(--muted);margin-bottom:16px;line-height:1.7;}
+.sheet .btn{width:100%;justify-content:flex-start;margin-bottom:9px;padding:13px 15px;}
+.cnt{font-size:.72rem;color:var(--muted);text-align:center;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="leaf" viewBox="0 0 24 24" fill="none" stroke="#7C8C6E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
+      </svg>
+      <div>
+        <h1>レシピ帳</h1>
+        <div class="sub">YOSHOKU DINING NAKAMURA</div>
+      </div>
+      <button class="icon-btn" style="margin-left:auto" onclick="openSettings()" aria-label="設定">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      </button>
+    </div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="search" id="search" type="text" placeholder="料理名・材料で検索" oninput="render()">
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <main class="list" id="list"></main>
+</div>
+
+<button class="fab" onclick="openForm()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+  レシピを追加
+</button>
+
+<!-- ===== 詳細画面 ===== -->
+<section class="screen" id="detailScreen">
+  <div class="scr-head">
+    <button class="icon-btn" onclick="closeScreen('detailScreen')" aria-label="戻る">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <button class="txt-btn" onclick="editCurrent()">編集</button>
+    <button class="txt-btn danger" onclick="deleteCurrent()">削除</button>
+  </div>
+  <div class="scr-body detail" id="detailBody"></div>
+</section>
+
+<!-- ===== 追加・編集フォーム ===== -->
+<section class="screen" id="formScreen">
+  <div class="scr-head">
+    <button class="icon-btn" onclick="closeScreen('formScreen')" aria-label="閉じる">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="title" id="formTitle">レシピを追加</div>
+  </div>
+  <div class="scr-body">
+    <!-- 写真 -->
+    <div class="field">
+      <label>写真　<span class="hint">料理本やYouTubeのスクショ・できた料理など</span></label>
+      <div class="photo-area" id="photoArea">
+        <div id="photoPlaceholder">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#7C8C6E" stroke-width="1.4" style="opacity:.7"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+          <div style="margin-top:8px;font-size:.84rem">写真を追加すると見つけやすくなります</div>
+        </div>
+        <img class="preview" id="preview" style="display:none">
+        <div class="photo-actions">
+          <button class="btn" onclick="document.getElementById('photoInput').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+            写真を選ぶ
+          </button>
+          <button class="btn ai" onclick="readWithAI()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+            AIで読み取る
+          </button>
+          <button class="btn" id="removePhotoBtn" style="display:none" onclick="removePhoto()">写真を削除</button>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoPick(event)">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>料理名</label>
+      <input type="text" id="fTitle" placeholder="例）真鯛のポワレ ブールブランソース">
+    </div>
+
+    <div class="field">
+      <label>カテゴリー</label>
+      <div class="cat-row">
+        <select id="fCategory"></select>
+        <button class="btn" onclick="addCategory()" style="white-space:nowrap">＋新規</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>材料　<span class="hint">分量は g・ml で</span></label>
+      <textarea id="fIngredients" placeholder="真鯛 …… 80g&#10;バター …… 30g&#10;白ワイン …… 50ml&#10;エシャロット …… 20g"></textarea>
+    </div>
+
+    <div class="field">
+      <label>作り方</label>
+      <textarea id="fSteps" placeholder="1. 真鯛に塩をして10分おく&#10;2. 皮目から焼く&#10;3. ソースを作る …"></textarea>
+    </div>
+
+    <div class="field">
+      <label>自分の味付けメモ　<span class="hint">微調整したこと・お店流のアレンジ</span></label>
+      <textarea id="fMemo" placeholder="バターを焦がし気味に。レモンを少し効かせると◎" style="min-height:70px"></textarea>
+    </div>
+
+    <div class="field" id="versionField">
+      <label id="versionLabel">更新の記録</label>
+      <div class="ver-row">
+        <div class="ver-num"><span class="cap">ver.</span><input type="number" id="fVersion" min="1" step="1" inputmode="numeric"></div>
+        <textarea id="fChangeNote" placeholder="今回の改善点（例：塩を1g減らし、レモンを追加）"></textarea>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>出典　<span class="hint">本のタイトル・URLなど（任意）</span></label>
+      <input type="text" id="fSource" placeholder="例）〇〇シェフのフレンチ / YouTube リンク">
+    </div>
+  </div>
+  <div class="save-bar">
+    <button class="btn" onclick="closeScreen('formScreen')">キャンセル</button>
+    <button class="btn primary" onclick="saveRecipe()">保存する</button>
+  </div>
+</section>
+
+<!-- AI未接続モーダル -->
+<div class="modal-bg" id="aiModal">
+  <div class="modal">
+    <svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M17.7 6.3l1.4-1.4M4.9 19.1l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
+    <h3>AI読み取りは次のステップで</h3>
+    <p>この機能は第2版でつなぎます。Geminiの設定が終わると、写真から料理名・材料・作り方が自動で入ります。<br>いまは手入力で保存できます。</p>
+    <button class="btn primary" onclick="document.getElementById('aiModal').classList.remove('show')">わかりました</button>
+  </div>
+</div>
+
+<!-- 履歴編集モーダル -->
+<div class="modal-bg" id="histModal">
+  <div class="modal">
+    <h3>更新履歴を編集</h3>
+    <div class="m-field"><label>バージョン</label><input type="number" id="hVer" min="1" step="1" inputmode="numeric"></div>
+    <div class="m-field"><label>改善点</label><textarea id="hNote" placeholder="この更新で変えたこと"></textarea></div>
+    <div class="m-field"><label>このときの材料　<span style="font-weight:400;color:var(--muted);font-size:.72rem">g・ml</span></label><textarea id="hIng" placeholder="真鯛 …… 80g&#10;バター …… 30g"></textarea></div>
+    <div class="btn-row">
+      <button class="btn danger-btn mini" onclick="deleteHistory()">削除</button>
+      <button class="btn" onclick="document.getElementById('histModal').classList.remove('show')">閉じる</button>
+      <button class="btn primary" onclick="saveHistory()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 設定シート -->
+<div class="sheet-bg" id="settingsSheet" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3>クラウド保存（iPhone↔PCで共有）</h3>
+    <p>この端末のレシピを、Googleスプレッドシートに保存／読み込みします。写真も含めて同期できます。</p>
+    <button class="btn primary" onclick="saveToCloud()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-8H7v8M7 3v5h8M4 4h13l4 4v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
+      保存（クラウドへ）
+    </button>
+    <button class="btn" onclick="loadFromCloud()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      読み込み（クラウドから）
+    </button>
+    <div class="cnt" id="syncHint" style="margin-bottom:20px"></div>
+
+    <h3>Obsidianに書き出す</h3>
+    <p>レシピをMarkdown（.md）にしてObsidianのボルトに保存します。1レシピ＝1ノートになり、Obsidian側で検索・リンクできます。</p>
+    <button class="btn" id="obsDirectBtn" onclick="exportToObsidianFolder()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+      Obsidianのフォルダに直接書き出す
+    </button>
+    <button class="btn" onclick="exportMarkdownFile()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+      Markdownをまとめてダウンロード
+    </button>
+    <div class="cnt" id="obsHint" style="margin-bottom:20px"></div>
+
+    <h3>バックアップ</h3>
+    <p>レシピはこの端末の中に保存されます。機種変更や万一に備えて、ときどき書き出しておくと安心です（iPhone↔PCの自動同期は第2版で対応）。</p>
+    <button class="btn" onclick="exportData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      レシピを書き出す（バックアップ）
+    </button>
+    <button class="btn" onclick="document.getElementById('importInput').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>
+      バックアップから読み込む
+    </button>
+    <input type="file" id="importInput" accept="application/json" style="display:none" onchange="importData(event)">
+    <div class="cnt" id="recipeCount"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   レシピ帳 第1版
+   - 保存：IndexedDB（使えない環境ではメモリのみ）
+   - 画像：取り込み時に自動で縮小（保存容量を節約）
+   - AI読み取り：第2版でGAS_URLを設定すると有効化
+   ===================================================================== */
+
+/* ▼▼ 第2版でここにGASのURLを入れます（例: https://script.google.com/macros/s/.../exec） ▼▼ */
+const GAS_URL = "";
+/* ▲▲ ここまで ▲▲ */
+
+/* ▼▼ クラウド保存（Googleスプレッドシート同期）の設定 ▼▼
+   ・SYNC_URL … GASウェブアプリのURL（/exec で終わるもの）を貼る
+   ・SYNC_KEY … GAS側の SYNC_KEY と同じ合言葉にする              */
+const SYNC_URL = "https://script.google.com/macros/s/AKfycbxM9X42D0mF4Xq_xwHmAnppnXXw3zw5agkouTljGHuZvLaQ4FFYJmu8SIk1xUBJB3dB/exec";
+const SYNC_KEY = "recipe-sync";
+/* ▲▲ ここまで ▲▲ */
+
+const DEFAULT_CATS = ['前菜','スープ','魚料理','肉料理','パスタ・ご飯','ソース','調味料','デザート','パン','ドリンク','その他'];
+
+/* ---------- ストレージ（IndexedDB ＋ メモリfallback） ---------- */
+const DB_NAME='recipeNotebook', V=1, S_REC='recipes', S_META='meta';
+let db=null, memMode=false;
+let recipes=[];           // 作業用（メモリ上の全レシピ）
+let categories=[...DEFAULT_CATS];
+
+function openDB(){
+  return new Promise(res=>{
+    try{
+      const r=indexedDB.open(DB_NAME,V);
+      r.onupgradeneeded=e=>{
+        const d=e.target.result;
+        if(!d.objectStoreNames.contains(S_REC)) d.createObjectStore(S_REC,{keyPath:'id'});
+        if(!d.objectStoreNames.contains(S_META)) d.createObjectStore(S_META,{keyPath:'key'});
+      };
+      r.onsuccess=e=>{db=e.target.result;res(true);};
+      r.onerror=()=>{memMode=true;res(false);};
+    }catch(_){memMode=true;res(false);}
+  });
+}
+function idbAll(){
+  return new Promise(res=>{
+    if(memMode||!db) return res([]);
+    try{
+      const tx=db.transaction(S_REC,'readonly').objectStore(S_REC).getAll();
+      tx.onsuccess=()=>res(tx.result||[]); tx.onerror=()=>res([]);
+    }catch(_){res([]);}
+  });
+}
+function idbPut(rec){
+  return new Promise(res=>{
+    if(memMode||!db) return res();
+    try{const tx=db.transaction(S_REC,'readwrite').objectStore(S_REC).put(rec);tx.onsuccess=()=>res();tx.onerror=()=>res();}
+    catch(_){res();}
+  });
+}
+function idbDel(id){
+  return new Promise(res=>{
+    if(memMode||!db) return res();
+    try{const tx=db.transaction(S_REC,'readwrite').objectStore(S_REC).delete(id);tx.onsuccess=()=>res();tx.onerror=()=>res();}
+    catch(_){res();}
+  });
+}
+function idbMetaGet(key){
+  return new Promise(res=>{
+    if(memMode||!db) return res(null);
+    try{const tx=db.transaction(S_META,'readonly').objectStore(S_META).get(key);tx.onsuccess=()=>res(tx.result?tx.result.value:null);tx.onerror=()=>res(null);}
+    catch(_){res(null);}
+  });
+}
+function idbMetaPut(key,value){
+  return new Promise(res=>{
+    if(memMode||!db) return res();
+    try{const tx=db.transaction(S_META,'readwrite').objectStore(S_META).put({key,value});tx.onsuccess=()=>res();tx.onerror=()=>res();}
+    catch(_){res();}
+  });
+}
+
+/* ---------- 画像の縮小（保存容量の節約） ---------- */
+function compressImage(file,maxDim=1200,quality=0.72){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
+        else if(h>=w&&h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
+        const c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        try{resolve(c.toDataURL('image/jpeg',quality));}catch(_){resolve(e.target.result);}
+      };
+      img.onerror=reject; img.src=e.target.result;
+    };
+    reader.onerror=reject; reader.readAsDataURL(file);
+  });
+}
+
+/* ---------- 起動 ---------- */
+let editingId=null;      // 編集中レシピID（新規はnull）
+let currentId=null;      // 詳細表示中のID
+let formPhoto=null;      // フォームの写真（dataURL）
+
+async function init(){
+  await openDB();
+  const savedCats=await idbMetaGet('categories');
+  if(savedCats&&Array.isArray(savedCats)&&savedCats.length) categories=savedCats;
+  // 旧カテゴリー「ソース・調味料」を「ソース」「調味料」に分割（既存データの移行）
+  const oldIdx=categories.indexOf('ソース・調味料');
+  if(oldIdx>=0){ categories.splice(oldIdx,1,'ソース','調味料'); await idbMetaPut('categories',categories); }
+  recipes=await idbAll();
+  for(const r of recipes){ if(r.category==='ソース・調味料'){ r.category='ソース'; await idbPut(r); } }
+  // 履歴を持たないレシピに初回バージョンを付与（既存データの移行）
+  for(const r of recipes){
+    if(!Array.isArray(r.history)){
+      r.version=r.version||1;
+      r.history=[{id:genId(),ver:1,note:'初回登録',date:r.createdAt||r.updatedAt||Date.now(),ingredients:r.ingredients||''}];
+      await idbPut(r);
+    }
+  }
+  recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  renderChips();
+  render();
+}
+
+/* ---------- カテゴリーチップ ---------- */
+let activeCat='すべて';
+function renderChips(){
+  const el=document.getElementById('chips');
+  const all=['すべて',...categories];
+  el.innerHTML=all.map(c=>`<button class="chip ${c===activeCat?'on':''}" onclick="setCat('${c.replace(/'/g,"\\'")}')">${esc(c)}</button>`).join('');
+}
+function setCat(c){activeCat=c;renderChips();render();}
+
+/* ---------- 一覧の描画 ---------- */
+function render(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  const list=document.getElementById('list');
+  let items=recipes.slice();
+  if(activeCat!=='すべて') items=items.filter(r=>r.category===activeCat);
+  if(q) items=items.filter(r=>
+    (r.title||'').toLowerCase().includes(q)||
+    (r.ingredients||'').toLowerCase().includes(q)||
+    (r.memo||'').toLowerCase().includes(q)
+  );
+  document.getElementById('recipeCount').textContent=`保存済み：${recipes.length} 件`;
+
+  if(items.length===0){
+    list.innerHTML=`<div class="empty">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+      <h2>${recipes.length===0?'最初のレシピを追加しましょう':'見つかりませんでした'}</h2>
+      <p>${recipes.length===0?'右下の「＋ レシピを追加」から、<br>写真とレシピを登録できます。':'検索やカテゴリーを変えてみてください。'}</p>
+    </div>`;
+    return;
+  }
+  list.innerHTML=items.map(r=>{
+    const thumb=r.image
+      ? `<img class="thumb" src="${r.image}" alt="">`
+      : `<div class="thumb ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg></div>`;
+    const snip=(r.ingredients||'').split('\n').filter(x=>x.trim()).slice(0,3).join(' / ');
+    return `<div class="card" onclick="openDetail('${r.id}')">
+      ${thumb}
+      <div class="body">
+        <div class="ttl">${esc(r.title||'（無題）')}</div>
+        <div class="meta"><span class="tag">${esc(r.category||'その他')}</span></div>
+        ${snip?`<div class="snip">${esc(snip)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- 詳細 ---------- */
+function openDetail(id){
+  const r=recipes.find(x=>x.id===id); if(!r)return;
+  currentId=id;
+  const body=document.getElementById('detailBody');
+  const img=r.image
+    ? `<img class="detail-img" src="${r.image}" alt="">`
+    : `<div class="detail-img ph"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg></div>`;
+  body.innerHTML=`
+    ${img}
+    <h2>${esc(r.title||'（無題）')}</h2>
+    <div class="tagline"><span class="tag">${esc(r.category||'その他')}</span><span class="ver-badge">ver.${r.version||1}</span></div>
+    ${section('材料',r.ingredients)}
+    ${section('作り方',r.steps)}
+    ${r.memo?`<div class="block"><div class="block-h"><span class="bar"></span>自分の味付けメモ</div><div class="memo-box"><div class="content">${esc(r.memo)}</div></div></div>`:''}
+    ${r.source?`<div class="block"><div class="block-h"><span class="bar"></span>出典</div><div class="src">${linkify(r.source)}</div></div>`:''}
+    ${historyBlock(r)}
+  `;
+  showScreen('detailScreen');
+}
+function historyBlock(r){
+  const h=Array.isArray(r.history)?r.history.slice():[];
+  if(h.length===0)return'';
+  h.sort((a,b)=>(b.ver-a.ver)||(b.date-a.date));
+  const items=h.map(e=>`
+    <div class="hist-item">
+      <div class="hist-top" onclick="toggleHistIng('${e.id}')">
+        <span class="hist-ver">ver.${e.ver}</span>
+        <span class="hist-date">${fmtDate(e.date)}</span>
+        ${e.ver===(r.version||1)?'<span class="hist-now">現在</span>':''}
+        <button class="hist-edit-btn" onclick="event.stopPropagation();editHistory('${r.id}','${e.id}')" aria-label="この履歴を編集">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+      </div>
+      <div onclick="toggleHistIng('${e.id}')">
+        ${e.note?`<div class="hist-note">${esc(e.note)}</div>`:`<div class="hist-note none">（メモなし）鉛筆マークから追記</div>`}
+      </div>
+      ${e.ingredients?`
+        <div class="hist-ing" id="hi_${e.id}">
+          <div class="hist-ing-h">このときの材料</div>
+          <div class="hist-ing-body">${esc(e.ingredients)}</div>
+          <button class="btn hist-use" onclick="event.stopPropagation();useHistIngredients('${r.id}','${e.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            この分量をコピーして新バージョンを作る
+          </button>
+        </div>
+        <button class="hist-toggle" onclick="toggleHistIng('${e.id}')" id="ht_${e.id}">材料を見る ▾</button>
+      `:''}
+    </div>`).join('');
+  return `<div class="block"><div class="block-h"><span class="bar"></span>更新履歴</div><div class="hist-list">${items}</div></div>`;
+}
+function section(title,text){
+  if(!text||!text.trim())return'';
+  return `<div class="block"><div class="block-h"><span class="bar"></span>${title}</div><div class="content">${esc(text)}</div></div>`;
+}
+
+/* ---------- フォーム ---------- */
+function openForm(){
+  editingId=null; formPhoto=null;
+  document.getElementById('formTitle').textContent='レシピを追加';
+  document.getElementById('fTitle').value='';
+  document.getElementById('fIngredients').value='';
+  document.getElementById('fSteps').value='';
+  document.getElementById('fMemo').value='';
+  document.getElementById('fSource').value='';
+  document.getElementById('fVersion').value=1;
+  document.getElementById('fChangeNote').value='';
+  document.getElementById('versionLabel').innerHTML='初回の記録　<span class="hint">あとから更新履歴に追記できます（任意）</span>';
+  document.getElementById('fChangeNote').placeholder='はじめのメモ（任意）';
+  fillCategorySelect('');
+  setPreview(null);
+  showScreen('formScreen');
+}
+function editCurrent(){
+  const r=recipes.find(x=>x.id===currentId); if(!r)return;
+  editCurrentFrom(r);
+}
+function editCurrentFrom(r){
+  editingId=r.id; formPhoto=r.image||null;
+  document.getElementById('formTitle').textContent='レシピを編集';
+  document.getElementById('fTitle').value=r.title||'';
+  document.getElementById('fIngredients').value=r.ingredients||'';
+  document.getElementById('fSteps').value=r.steps||'';
+  document.getElementById('fMemo').value=r.memo||'';
+  document.getElementById('fSource').value=r.source||'';
+  document.getElementById('fVersion').value=(r.version||1)+1;
+  document.getElementById('fChangeNote').value='';
+  document.getElementById('versionLabel').innerHTML='更新の記録　<span class="hint">改善点を書いて保存すると新バージョンとして残ります</span>';
+  document.getElementById('fChangeNote').placeholder='今回の改善点（例：塩を1g減らし、レモンを追加）';
+  fillCategorySelect(r.category||'');
+  setPreview(r.image||null);
+  closeScreen('detailScreen');
+  showScreen('formScreen');
+}
+function fillCategorySelect(selected){
+  const sel=document.getElementById('fCategory');
+  sel.innerHTML=categories.map(c=>`<option ${c===selected?'selected':''}>${esc(c)}</option>`).join('');
+  if(!selected) sel.selectedIndex=0;
+}
+function addCategory(){
+  const name=prompt('新しいカテゴリー名を入力してください');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  if(!categories.includes(n)){categories.push(n);idbMetaPut('categories',categories);renderChips();}
+  fillCategorySelect(n);
+}
+
+/* 写真 */
+async function onPhotoPick(e){
+  const file=e.target.files&&e.target.files[0]; if(!file)return;
+  toast('写真を読み込み中…');
+  try{ formPhoto=await compressImage(file); setPreview(formPhoto); }
+  catch(_){ toast('写真を読み込めませんでした'); }
+  e.target.value='';
+}
+function setPreview(dataUrl){
+  const img=document.getElementById('preview');
+  const ph=document.getElementById('photoPlaceholder');
+  const rm=document.getElementById('removePhotoBtn');
+  if(dataUrl){img.src=dataUrl;img.style.display='block';ph.style.display='none';rm.style.display='inline-flex';}
+  else{img.style.display='none';ph.style.display='block';rm.style.display='none';}
+}
+function removePhoto(){formPhoto=null;setPreview(null);}
+
+/* AI読み取り（第2版で有効化） */
+async function readWithAI(){
+  if(!GAS_URL){ document.getElementById('aiModal').classList.add('show'); return; }
+  if(!formPhoto){ toast('先に写真を選んでください'); return; }
+  toast('AIが読み取り中…');
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({image:formPhoto})});
+    const data=await res.json();
+    if(data.title) document.getElementById('fTitle').value=data.title;
+    if(data.ingredients) document.getElementById('fIngredients').value=data.ingredients;
+    if(data.steps) document.getElementById('fSteps').value=data.steps;
+    if(data.category){ if(!categories.includes(data.category)){categories.push(data.category);idbMetaPut('categories',categories);renderChips();} fillCategorySelect(data.category); }
+    toast('読み取りました。内容を確認してください');
+  }catch(_){ toast('読み取りに失敗しました'); }
+}
+
+/* 保存 */
+async function saveRecipe(){
+  const title=document.getElementById('fTitle').value.trim();
+  const ing=document.getElementById('fIngredients').value.trim();
+  if(!title&&!ing&&!formPhoto){ toast('料理名か写真を入れてください'); return; }
+  const now=Date.now();
+  const changeNote=document.getElementById('fChangeNote').value.trim();
+  const verInput=parseInt(document.getElementById('fVersion').value,10);
+  let rec, msg;
+  if(editingId){
+    rec=recipes.find(x=>x.id===editingId);
+    Object.assign(rec,{
+      title, category:document.getElementById('fCategory').value,
+      ingredients:ing, steps:document.getElementById('fSteps').value.trim(),
+      memo:document.getElementById('fMemo').value.trim(),
+      source:document.getElementById('fSource').value.trim(),
+      image:formPhoto, updatedAt:now
+    });
+    if(changeNote){
+      const ver=(!isNaN(verInput)&&verInput>0)?verInput:((rec.version||1)+1);
+      if(!Array.isArray(rec.history)) rec.history=[];
+      rec.history.push({id:genId(),ver,note:changeNote,date:now,ingredients:ing});
+      rec.version=ver;
+      msg=`ver.${ver} を記録しました`;
+    }else{
+      msg='保存しました';
+    }
+  }else{
+    const ver=(!isNaN(verInput)&&verInput>0)?verInput:1;
+    rec={
+      id:'r'+now+Math.random().toString(36).slice(2,6),
+      title, category:document.getElementById('fCategory').value,
+      ingredients:ing, steps:document.getElementById('fSteps').value.trim(),
+      memo:document.getElementById('fMemo').value.trim(),
+      source:document.getElementById('fSource').value.trim(),
+      image:formPhoto, createdAt:now, updatedAt:now,
+      version:ver,
+      history:[{id:genId(),ver,note:changeNote||'初回登録',date:now,ingredients:ing}]
+    };
+    recipes.unshift(rec);
+    msg='追加しました';
+  }
+  await idbPut(rec);
+  recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  closeScreen('formScreen');
+  render();
+  toast(msg);
+}
+
+/* ---------- 更新履歴の編集 ---------- */
+let histEdit={recipeId:null,histId:null};
+function toggleHistIng(histId){
+  const box=document.getElementById('hi_'+histId);
+  const btn=document.getElementById('ht_'+histId);
+  if(!box)return;
+  const open=box.classList.toggle('open');
+  if(btn) btn.textContent=open?'材料を閉じる ▴':'材料を見る ▾';
+}
+/* 過去バージョンの分量をコピーして、新バージョンを作る */
+function useHistIngredients(recipeId,histId){
+  const r=recipes.find(x=>x.id===recipeId); if(!r)return;
+  const h=r.history.find(x=>x.id===histId); if(!h)return;
+  editCurrentFrom(r);
+  document.getElementById('fIngredients').value=h.ingredients||'';
+  document.getElementById('fChangeNote').value=`ver.${h.ver} の分量をもとに調整：`;
+  toast(`ver.${h.ver} の分量を読み込みました`);
+  setTimeout(()=>{document.getElementById('fIngredients').scrollIntoView({block:'center'});},250);
+}
+function editHistory(recipeId,histId){
+  const r=recipes.find(x=>x.id===recipeId); if(!r||!Array.isArray(r.history))return;
+  const h=r.history.find(x=>x.id===histId); if(!h)return;
+  histEdit={recipeId,histId};
+  document.getElementById('hVer').value=h.ver;
+  document.getElementById('hNote').value=h.note||'';
+  document.getElementById('hIng').value=h.ingredients||'';
+  document.getElementById('histModal').classList.add('show');
+}
+async function saveHistory(){
+  const r=recipes.find(x=>x.id===histEdit.recipeId); if(!r)return;
+  const h=r.history.find(x=>x.id===histEdit.histId); if(!h)return;
+  const v=parseInt(document.getElementById('hVer').value,10);
+  if(!isNaN(v)&&v>0) h.ver=v;
+  h.note=document.getElementById('hNote').value.trim();
+  h.ingredients=document.getElementById('hIng').value.trim();
+  r.version=Math.max(...r.history.map(x=>x.ver));   // 最新バージョン番号を更新
+  // 最新バージョンの材料を編集したら、レシピ本体の材料にも反映
+  const newest=r.history.reduce((a,b)=>(b.ver>=a.ver?b:a));
+  if(newest.id===h.id&&h.ingredients) r.ingredients=h.ingredients;
+  r.updatedAt=Date.now();
+  await idbPut(r);
+  document.getElementById('histModal').classList.remove('show');
+  openDetail(r.id);
+  render();
+  toast('履歴を更新しました');
+}
+async function deleteHistory(){
+  const r=recipes.find(x=>x.id===histEdit.recipeId); if(!r)return;
+  if(r.history.length<=1){ toast('最後の履歴は削除できません'); return; }
+  if(!confirm('この履歴を削除しますか？'))return;
+  r.history=r.history.filter(x=>x.id!==histEdit.histId);
+  r.version=Math.max(...r.history.map(x=>x.ver));
+  r.updatedAt=Date.now();
+  await idbPut(r);
+  document.getElementById('histModal').classList.remove('show');
+  openDetail(r.id);
+  toast('履歴を削除しました');
+}
+
+/* 削除 */
+async function deleteCurrent(){
+  const r=recipes.find(x=>x.id===currentId); if(!r)return;
+  if(!confirm(`「${r.title||'このレシピ'}」を削除しますか？`))return;
+  recipes=recipes.filter(x=>x.id!==currentId);
+  await idbDel(currentId);
+  closeScreen('detailScreen');
+  render();
+  toast('削除しました');
+}
+
+/* ---------- クラウド保存（Googleスプレッドシート同期） ---------- */
+function idbClearRecipes(){
+  return new Promise(res=>{
+    if(memMode||!db) return res();
+    try{const tx=db.transaction(S_REC,'readwrite').objectStore(S_REC).clear();tx.onsuccess=()=>res();tx.onerror=()=>res();}
+    catch(_){res();}
+  });
+}
+/* 保存：この端末のレシピをスプレッドシートへ（上書き） */
+async function saveToCloud(){
+  if(!SYNC_URL){ alert('先にGASの設定が必要です。\n設定手順にそって SYNC_URL を入れてください。'); return; }
+  if(recipes.length===0){ toast('レシピがまだありません'); return; }
+  toast('クラウドに保存中…');
+  const payload=JSON.stringify({key:SYNC_KEY, data:JSON.stringify({recipes,categories})});
+  try{
+    // 保存は no-cors + text/plain（GAS連携の鉄則）。レスポンスは読めないので送信できたら成功とみなす
+    await fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:payload});
+    toast('クラウドに保存しました');
+    document.getElementById('settingsSheet').classList.remove('show');
+  }catch(_){ toast('保存に失敗しました（通信を確認）'); }
+}
+/* 読み込み：スプレッドシートの内容でこの端末を置き換え */
+async function loadFromCloud(){
+  if(!SYNC_URL){ alert('先にGASの設定が必要です。\n設定手順にそって SYNC_URL を入れてください。'); return; }
+  if(!confirm('クラウドの内容を読み込みます。\nこの端末の今のレシピは、クラウドの内容に置き換わります。よろしいですか？')) return;
+  toast('クラウドから読み込み中…');
+  try{
+    // 読み込みは cors のままでOK（鉄則）
+    const res=await fetch(SYNC_URL+'?key='+encodeURIComponent(SYNC_KEY));
+    const j=await res.json();
+    if(!j.ok){ toast(j.msg||'読み込めませんでした'); return; }
+    const parsed=JSON.parse(j.data||'{}');
+    if(Array.isArray(parsed.categories)&&parsed.categories.length){ categories=parsed.categories; await idbMetaPut('categories',categories); }
+    await idbClearRecipes();
+    recipes=Array.isArray(parsed.recipes)?parsed.recipes:[];
+    for(const r of recipes){ await idbPut(r); }
+    recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    renderChips(); render();
+    document.getElementById('settingsSheet').classList.remove('show');
+    toast(`クラウドから ${recipes.length}件 読み込みました`);
+  }catch(_){ toast('読み込みに失敗しました（通信を確認）'); }
+}
+
+/* ---------- Obsidian書き出し ---------- */
+
+/* ファイル名に使えない文字を除く */
+function safeFileName(s){
+  return String(s||'').replace(/[\\\/:*?"<>|#\[\]^]/g,'').replace(/\s+/g,' ').trim().slice(0,60) || '無題';
+}
+/* フロントマターの値を安全に囲む */
+function yq(s){ return '"'+String(s==null?'':s).replace(/"/g,'\\"').replace(/\n/g,' ')+'"'; }
+/* dataURL → Blob */
+function dataUrlToBlob(dataUrl){
+  const [head,b64]=dataUrl.split(',');
+  const mime=(head.match(/data:([^;]+)/)||[,'image/jpeg'])[1];
+  const bin=atob(b64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return {blob:new Blob([arr],{type:mime}), ext:(mime.split('/')[1]||'jpg').replace('jpeg','jpg')};
+}
+
+/* 1レシピ分のMarkdownを作る */
+function recipeToMarkdown(r,imageFileName){
+  const d=new Date(r.updatedAt||Date.now()),p=n=>String(n).padStart(2,'0');
+  const ymd=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  let md='---\n';
+  md+=`料理名: ${yq(r.title||'無題')}\n`;
+  md+=`カテゴリー: ${yq(r.category||'その他')}\n`;
+  md+=`バージョン: ${r.version||1}\n`;
+  md+=`更新日: ${ymd}\n`;
+  if(r.source) md+=`出典: ${yq(r.source)}\n`;
+  md+=`tags:\n  - レシピ\n  - ${(r.category||'その他').replace(/\s/g,'')}\n`;
+  md+='---\n\n';
+  md+=`# ${r.title||'無題'}\n\n`;
+  if(imageFileName) md+=`![[${imageFileName}]]\n\n`;
+  if(r.ingredients) md+=`## 材料\n\n${r.ingredients}\n\n`;
+  if(r.steps) md+=`## 作り方\n\n${r.steps}\n\n`;
+  if(r.memo) md+=`## 自分の味付けメモ\n\n> ${r.memo.replace(/\n/g,'\n> ')}\n\n`;
+  if(Array.isArray(r.history)&&r.history.length){
+    md+='## 更新履歴\n\n';
+    const h=r.history.slice().sort((a,b)=>(b.ver-a.ver)||(b.date-a.date));
+    for(const e of h){
+      md+=`### ver.${e.ver}　${fmtDate(e.date)}\n\n`;
+      if(e.note) md+=`${e.note}\n\n`;
+      if(e.ingredients) md+=`このときの材料\n\n\`\`\`\n${e.ingredients}\n\`\`\`\n\n`;
+    }
+  }
+  return md;
+}
+
+/* ① Obsidianのフォルダに直接書き出す（PCのChrome / Edge） */
+async function exportToObsidianFolder(){
+  if(!window.showDirectoryPicker){
+    toast('この端末では下のダウンロードをお使いください'); return;
+  }
+  if(recipes.length===0){ toast('レシピがまだありません'); return; }
+  let dir;
+  try{ dir=await window.showDirectoryPicker({mode:'readwrite'}); }
+  catch(_){ return; }   // キャンセル
+  try{
+    const base=await dir.getDirectoryHandle('レシピ帳',{create:true});
+    const imgDir=await base.getDirectoryHandle('画像',{create:true});
+    let n=0;
+    for(const r of recipes){
+      let imgName='';
+      if(r.image){
+        try{
+          const {blob,ext}=dataUrlToBlob(r.image);
+          imgName=`${safeFileName(r.title)}_${r.id}.${ext}`;
+          const ih=await imgDir.getFileHandle(imgName,{create:true});
+          const iw=await ih.createWritable(); await iw.write(blob); await iw.close();
+        }catch(_){ imgName=''; }
+      }
+      const fh=await base.getFileHandle(`${safeFileName(r.title)}.md`,{create:true});
+      const w=await fh.createWritable();
+      await w.write(new Blob([recipeToMarkdown(r,imgName)],{type:'text/markdown;charset=utf-8'}));
+      await w.close();
+      n++;
+    }
+    toast(`${n}件を書き出しました`);
+    document.getElementById('settingsSheet').classList.remove('show');
+  }catch(err){
+    toast('書き出せませんでした');
+  }
+}
+
+/* ② Markdownを1ファイルにまとめてダウンロード */
+function exportMarkdownFile(){
+  if(recipes.length===0){ toast('レシピがまだありません'); return; }
+  const parts=recipes.map(r=>recipeToMarkdown(r,''));
+  const body=parts.join('\n\n---\n\n');
+  const blob=new Blob([body],{type:'text/markdown;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  a.href=url; a.download=`レシピ帳_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.md`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('ダウンロードしました');
+}
+
+/* ---------- バックアップ ---------- */
+function exportData(){
+  const data={version:1,exportedAt:new Date().toISOString(),categories,recipes};
+  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  a.href=url; a.download=`レシピ帳バックアップ_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('書き出しました');
+}
+async function importData(e){
+  const file=e.target.files&&e.target.files[0]; if(!file)return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(!data.recipes||!Array.isArray(data.recipes)) throw 0;
+    if(!confirm(`${data.recipes.length}件のレシピを読み込みます。\n今ある同じレシピは上書きされます。よろしいですか？`)){e.target.value='';return;}
+    if(Array.isArray(data.categories)&&data.categories.length){categories=data.categories;await idbMetaPut('categories',categories);}
+    for(const r of data.recipes){
+      if(!r.id) r.id='r'+Date.now()+Math.random().toString(36).slice(2,6);
+      const i=recipes.findIndex(x=>x.id===r.id);
+      if(i>=0) recipes[i]=r; else recipes.push(r);
+      await idbPut(r);
+    }
+    recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    renderChips(); render();
+    document.getElementById('settingsSheet').classList.remove('show');
+    toast('読み込みました');
+  }catch(_){ toast('ファイルを読み込めませんでした'); }
+  e.target.value='';
+}
+
+/* ---------- 画面・小物 ---------- */
+function showScreen(id){document.getElementById(id).classList.add('show');document.body.style.overflow='hidden';}
+function closeScreen(id){document.getElementById(id).classList.remove('show');if(!document.querySelector('.screen.show'))document.body.style.overflow='';}
+function openSettings(){
+  document.getElementById('recipeCount').textContent=`保存済み：${recipes.length} 件`;
+  const syncHint=document.getElementById('syncHint');
+  if(syncHint) syncHint.textContent = SYNC_URL ? '※「編集した方で保存」→「もう片方で読み込み」の順で使います。' : '※ 使うには最初にGASの設定が必要です（手順は別途ご案内）。';
+  const btn=document.getElementById('obsDirectBtn'), hint=document.getElementById('obsHint');
+  if(window.showDirectoryPicker){
+    btn.style.display=''; hint.textContent='※ 直接書き出しは、フォルダを選ぶだけ。同じ名前のノートは上書きされます。';
+  }else{
+    btn.style.display='none'; hint.textContent='※ この端末（iPhone等）では直接書き出しが使えないため、ダウンロードしたファイルをObsidianのフォルダに入れてください。';
+  }
+  document.getElementById('settingsSheet').classList.add('show');
+}
+let toastTimer=null;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function linkify(s){const e=esc(s);return e.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
+function genId(){return 'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function fmtDate(ts){if(!ts)return'';const d=new Date(ts),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}`;}
+
+init();
+</script>
+</body>
+</html>
