@@ -460,15 +460,12 @@ textarea{line-height:1.7;}
    - AI読み取り：第2版でGAS_URLを設定すると有効化
    ===================================================================== */
 
-/* ▼▼ 第2版でここにGASのURLを入れます（例: https://script.google.com/macros/s/.../exec） ▼▼ */
-const GAS_URL = "";
-/* ▲▲ ここまで ▲▲ */
-
-/* ▼▼ クラウド保存（Googleスプレッドシート同期）の設定 ▼▼
-   ・SYNC_URL … GASウェブアプリのURL（/exec で終わるもの）を貼る
-   ・SYNC_KEY … GAS側の SYNC_KEY と同じ合言葉にする              */
+/* ▼▼ クラウド保存＆AI読み取り（同じGASを使う）の設定 ▼▼
+   ・SYNC_URL … GASウェブアプリのURL（/exec で終わるもの）
+   ・SYNC_KEY … GAS側の SYNC_KEY と同じ合言葉                    */
 const SYNC_URL = "https://script.google.com/macros/s/AKfycbxM9X42D0mF4Xq_xwHmAnppnXXw3zw5agkouTljGHuZvLaQ4FFYJmu8SIk1xUBJB3dB/exec";
 const SYNC_KEY = "recipe-sync";
+const GAS_URL = SYNC_URL;   // AI読み取りも同じGASを使う
 /* ▲▲ ここまで ▲▲ */
 
 const DEFAULT_CATS = ['前菜','スープ','魚料理','肉料理','パスタ・ご飯','ソース','調味料','デザート','パン','ドリンク','その他'];
@@ -748,20 +745,26 @@ function setPreview(dataUrl){
 }
 function removePhoto(){formPhoto=null;setPreview(null);}
 
-/* AI読み取り（第2版で有効化） */
+/* AI読み取り（写真 → Gemini → 材料と手順を自動入力） */
+let aiBusy=false;
 async function readWithAI(){
   if(!GAS_URL){ document.getElementById('aiModal').classList.add('show'); return; }
   if(!formPhoto){ toast('先に写真を選んでください'); return; }
-  toast('AIが読み取り中…');
+  if(aiBusy) return;
+  aiBusy=true;
+  toast('AIが読み取り中…（10秒ほどかかります）');
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({image:formPhoto})});
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'ai', key:SYNC_KEY, image:formPhoto})});
     const data=await res.json();
+    if(!data.ok){ toast(data.msg||'読み取れませんでした'); aiBusy=false; return; }
     if(data.title) document.getElementById('fTitle').value=data.title;
     if(data.ingredients) document.getElementById('fIngredients').value=data.ingredients;
     if(data.steps) document.getElementById('fSteps').value=data.steps;
     if(data.category){ if(!categories.includes(data.category)){categories.push(data.category);idbMetaPut('categories',categories);renderChips();} fillCategorySelect(data.category); }
     toast('読み取りました。内容を確認してください');
-  }catch(_){ toast('読み取りに失敗しました'); }
+  }catch(_){ toast('読み取りに失敗しました（通信を確認）'); }
+  aiBusy=false;
 }
 
 /* 保存 */
