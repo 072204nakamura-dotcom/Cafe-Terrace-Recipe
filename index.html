@@ -214,9 +214,17 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
       <div style="font-family:'Shippori Mincho B1',serif;font-size:14px;font-weight:700">読み取り結果</div>
       <div id="inv-summary" style="font-size:11px;color:var(--mid)"></div>
     </div>
+    <div class="card" style="margin:0 0 8px;padding:10px 12px;background:var(--gold-l);border:1px solid #e8d9a8">
+      <div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:6px">🏪 業者名を一括設定</div>
+      <div style="display:flex;gap:6px">
+        <input id="inv-bulk-supplier" placeholder="例：アクト中食" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;font-family:'Zen Kaku Gothic New',sans-serif;-webkit-appearance:none;background:#fff">
+        <button id="inv-bulk-btn" onclick="applyBulkSupplier(false)" oncontextmenu="event.preventDefault();applyBulkSupplier(true)" style="flex-shrink:0;padding:8px 14px;background:var(--gd);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Shippori Mincho B1',serif;touch-action:manipulation">全行に適用</button>
+      </div>
+      <div style="font-size:10px;color:var(--mid);margin-top:5px">業者が空欄の行だけに入力するには長押し（PC:右クリック）</div>
+    </div>
     <div class="card" style="margin:0 0 10px;padding:10px 12px">
-      <div style="display:grid;grid-template-columns:1fr 80px 50px 60px;gap:5px;padding:3px 0 6px;font-size:9px;font-weight:700;color:var(--mid);border-bottom:1px solid var(--border)">
-        <span>食材名</span><span>単価</span><span>単位</span><span>状態</span>
+      <div style="padding:3px 0 6px;font-size:10px;color:var(--mid);border-bottom:1px solid var(--border)">
+        各項目はタップで修正できます。✕で取り込み対象から外せます。
       </div>
       <div id="inv-result-list"></div>
     </div>
@@ -984,18 +992,64 @@ async function analyzeInvoice(){
   }catch(e){ const err=document.getElementById('inv-err'); err.textContent='⚠️ '+e.message; err.style.display=''; }
   finally{ btn.disabled=false; btn.style.opacity='1'; document.getElementById('inv-loading').style.display='none'; }
 }
+
+// 業者名を一括設定
+function applyBulkSupplier(emptyOnly){
+  const name = (document.getElementById('inv-bulk-supplier').value||'').trim();
+  if(!name){ showToast('⚠️ 業者名を入力してください'); return; }
+  if(!invState.items || !invState.items.length){ showToast('⚠️ 読み取り結果がありません'); return; }
+  let count = 0;
+  invState.items.forEach(item=>{
+    if(emptyOnly && item.supplier) return;  // 空欄のみモード
+    item.supplier = name;
+    count++;
+  });
+  renderInvResult(invState.items);
+  showToast('✅ '+count+'件に「'+name+'」を設定しました');
+}
+
 function renderInvResult(items){
   const s=load();
   const UNIT_NORM={'ｇ':'g','Ｇ':'g','㎖':'ml','ｍｌ':'ml','ｋｇ':'kg','㎏':'kg'};
   let nc=0,uc=0,sc=0;
   const list=document.getElementById('inv-result-list'); list.innerHTML='';
-  items.forEach(item=>{
+  items.forEach((item, itemIdx)=>{
     item.unit=UNIT_NORM[item.unit]||item.unit||'g';
     const ex=s.ingredients.find(i=>i.name.replace(/\s/g,'')=== item.name.replace(/\s/g,'')||i.name.includes(item.name)||item.name.includes(i.name));
     let st,sc2;
     if(!ex){st='新規';sc2='is-new';nc++;}else if(Math.abs(ex.unitPrice-item.unitPrice)>0.0001){st='更新';sc2='is-update';uc++;}else{st='変更なし';sc2='is-same';sc++;}
-    const row=document.createElement('div'); row.className='inv-result-row';
-    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.name)+'</div>'+(ex&&st==='更新'?'<div style="font-size:10px;color:var(--mid);text-decoration:line-through">¥'+ex.unitPrice+'/'+esc(ex.unit||'g')+'</div>':'')+'</div><div style="font-size:13px;font-weight:700;color:var(--gd);white-space:nowrap">¥'+item.unitPrice+'</div><div style="font-size:12px;color:var(--mid)">'+esc(item.unit)+'</div><span class="inv-status '+sc2+'">'+st+'</span>';
+    const row=document.createElement('div');
+    row.className='inv-result-row';
+    row.dataset.itemIdx = itemIdx;
+    row.style.cssText='display:block;padding:8px 0;border-bottom:1px solid var(--line)';
+    row.innerHTML=
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">'+
+        '<input value="'+esc(item.name)+'" data-inv-f="name" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:\'Zen Kaku Gothic New\',sans-serif;-webkit-appearance:none">'+
+        '<span class="inv-status '+sc2+'">'+st+'</span>'+
+        '<button data-inv-del style="background:none;border:none;font-size:16px;color:var(--red);cursor:pointer;padding:2px 6px;flex-shrink:0">✕</button>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px">'+
+        '<span style="font-size:11px;color:var(--mid)">¥</span>'+
+        '<input type="number" step="0.0001" value="'+item.unitPrice+'" data-inv-f="unitPrice" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-weight:700;color:var(--gd);-webkit-appearance:none">'+
+        '<span style="font-size:11px;color:var(--mid)">/</span>'+
+        '<input value="'+esc(item.unit)+'" data-inv-f="unit" style="width:50px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;-webkit-appearance:none">'+
+        '<input value="'+esc(item.supplier||'')+'" data-inv-f="supplier" placeholder="業者" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--mid);-webkit-appearance:none">'+
+        (ex&&st==='更新'?'<span style="font-size:10px;color:var(--mid);text-decoration:line-through;white-space:nowrap">¥'+ex.unitPrice+'</span>':'')+
+      '</div>';
+    // 入力変更を invState.items に反映
+    row.querySelectorAll('[data-inv-f]').forEach(inp=>{
+      inp.addEventListener('input', function(){
+        const f = this.dataset.invF;
+        const v = this.value;
+        invState.items[itemIdx][f] = (f==='unitPrice') ? (parseFloat(v)||0) : v;
+      });
+    });
+    // 削除ボタン
+    row.querySelector('[data-inv-del]').addEventListener('click', function(){
+      if(!confirm('「'+item.name+'」を取り込み対象から外しますか？')) return;
+      invState.items.splice(itemIdx, 1);
+      renderInvResult(invState.items);
+    });
     list.appendChild(row);
   });
   document.getElementById('inv-summary').textContent='新規 '+nc+' / 更新 '+uc+' / 変更なし '+sc;
