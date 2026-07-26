@@ -546,16 +546,6 @@ function openRecipeDetail(id){
       '<div style="text-align:right"><span style="font-size:12px;color:var(--mid)">'+ri.qty+' '+esc(ri.unit||ing.unit)+'</span> <span style="font-size:12px;color:var(--gd);font-weight:700;margin-left:6px">'+fmtY(rowCost)+'</span></div>'+
     '</div>';
   }).join('');
-  const stepsHtml=(r.steps||[]).map((st,i)=>
-    '<div class="step-row">'+
-      '<div class="step-num">'+( i+1)+'</div>'+
-      '<div style="flex:1"><div style="font-size:13px;line-height:1.5">'+esc(st.text)+'</div>'+
-        '<div style="display:flex;gap:8px;margin-top:2px">'+
-          (st.prepTime?'<span style="font-size:10px;color:var(--mid)">⏱ '+esc(st.prepTime)+'</span>':'')+
-          (st.taskType?'<span style="font-size:10px;background:var(--gl);color:var(--gd);padding:1px 6px;border-radius:10px">'+esc(st.taskType)+'</span>':'')+
-        '</div></div>'+
-    '</div>'
-  ).join('');
   document.getElementById('recipe-modal-body').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
       '<div><div style="font-family:\'Shippori Mincho B1\',serif;font-size:18px;font-weight:800">'+esc(r.name)+'</div>'+
@@ -569,7 +559,7 @@ function openRecipeDetail(id){
       (r.notes?'<div style="font-size:11px;color:var(--mid);margin-top:6px;padding-top:6px;border-top:1px solid #e8d9a8">'+esc(r.notes)+'</div>':'')+
     '</div>'+
     (ingsHtml?'<div style="font-family:\'Shippori Mincho B1\',serif;font-size:13px;font-weight:700;margin-bottom:6px">食材</div><div style="background:var(--card);border-radius:10px;padding:6px 12px;margin-bottom:12px;box-shadow:0 1px 6px var(--shadow)">'+ingsHtml+'</div>':'')+
-    (stepsHtml?'<div style="font-family:\'Shippori Mincho B1\',serif;font-size:13px;font-weight:700;margin-bottom:6px">調理手順</div><div style="background:var(--card);border-radius:10px;padding:6px 12px;margin-bottom:14px;box-shadow:0 1px 6px var(--shadow)">'+stepsHtml+'</div>':'')+
+
     '<div style="display:flex;gap:8px">'+
       '<button class="btn-ef btn-ef-g" style="flex:1" onclick="closeRecipeModal();openRecipeEdit('+id+')">✎ 編集</button>'+
       '<button class="btn-ef btn-ef-r" style="flex:1" onclick="deleteRecipe('+id+')">削除</button>'+
@@ -610,22 +600,6 @@ function openRecipeEdit(id){
       '<button onclick="this.closest(\'.ri-row\').remove();updateRiCost()" style="background:none;border:none;font-size:15px;color:var(--mid);cursor:pointer;padding:0">✕</button>'+
     '</div>';
   }
-  function makeStepRow(st,idx){
-    return '<div class="step-row" data-si="'+idx+'">'+
-      '<div class="step-num">'+( idx+1)+'</div>'+
-      '<div style="flex:1">'+
-        '<textarea class="finp" rows="1" oninput="autoResize(this)" style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;width:100%;background:#fff" placeholder="手順を入力...">'+esc(st.text||'')+'</textarea>'+
-        '<div style="display:flex;gap:5px;margin-top:4px">'+
-          '<input style="flex:1;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:12px" placeholder="所要時間（例：20分）" value="'+esc(st.prepTime||'')+'">'+
-          '<select style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px;-webkit-appearance:none">'+
-            ['仕込み','煮込み','提供','盛り付け','その他'].map(t=>'<option'+(t===st.taskType?' selected':'')+'>'+t+'</option>').join('')+
-          '</select>'+
-        '</div>'+
-      '</div>'+
-      '<button onclick="this.closest(\'.step-row\').remove()" style="background:none;border:none;font-size:15px;color:var(--mid);cursor:pointer;flex-shrink:0;padding:0">✕</button>'+
-    '</div>';
-  }
-
   document.getElementById('recipe-modal-body').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
       '<div style="font-family:\'Shippori Mincho B1\',serif;font-size:17px;font-weight:800">'+( isNew?'レシピ新規登録':'レシピ編集')+'</div>'+
@@ -660,11 +634,6 @@ function openRecipeEdit(id){
       '<div id="re-ing-list">'+data.ingredients.map(makeIngRow).join('')+'</div>'+
       '<div id="re-cost-detail" style="font-size:11px;color:var(--gold);text-align:right;padding:5px 0 2px"></div>'+
     '</div>'+
-    // 手順
-    '<div class="sec-hd"><span class="sec-hd-ttl">調理手順</span>'+
-      '<button onclick="addStepRow()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:14px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:\'Shippori Mincho B1\',serif">＋ 追加</button>'+
-    '</div>'+
-    '<div class="sec-body" style="padding:5px 10px"><div id="re-step-list">'+data.steps.map(makeStepRow).join('')+'</div></div>'+
     // 保存ボタン
     '<button class="btn-ef btn-ef-g" style="width:100%;margin-top:6px" onclick="saveRecipeEdit('+( id||'null')+')">💾 '+( isNew?'登録する':'保存する')+'</button>'+
     '<button class="btn-ef btn-ef-r" style="width:100%;margin-top:8px;border:none;background:transparent;font-size:13px" onclick="closeRecipeModal()">キャンセル</button>';
@@ -700,23 +669,6 @@ function addRiRow(){
   updateRiCost();
 }
 
-function addStepRow(){
-  const list=document.getElementById('re-step-list');
-  const idx=list.querySelectorAll('.step-row').length;
-  const div=document.createElement('div'); div.className='step-row'; div.dataset.si=idx;
-  div.innerHTML=
-    '<div class="step-num">'+( idx+1)+'</div>'+
-    '<div style="flex:1">'+
-      '<textarea class="finp" rows="1" oninput="autoResize(this)" style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;width:100%;background:#fff" placeholder="手順を入力..."></textarea>'+
-      '<div style="display:flex;gap:5px;margin-top:4px">'+
-        '<input style="flex:1;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:12px" placeholder="所要時間（例：20分）">'+
-        '<select style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px;-webkit-appearance:none">'+
-          ['仕込み','煮込み','提供','盛り付け','その他'].map(t=>'<option>'+t+'</option>').join('')+
-        '</select>'+
-      '</div></div>'+
-    '<button onclick="this.closest(\'.step-row\').remove()" style="background:none;border:none;font-size:15px;color:var(--mid);cursor:pointer;flex-shrink:0;padding:0">✕</button>';
-  list.appendChild(div);
-}
 
 
 // ===================================================
@@ -826,12 +778,6 @@ function saveRecipeEdit(origId){
     ings.push({ingId:ingId,qty:parseFloat(qtyInp?.value)||0,unit:unitInp?.value||'g',yieldRate:parseFloat(yrInp?.value)||100});
   });
   const steps=[];
-  document.querySelectorAll('#re-step-list .step-row').forEach(row=>{
-    const ta=row.querySelector('textarea');
-    const inputs=row.querySelectorAll('input');
-    const sel=row.querySelector('select');
-    steps.push({text:(ta?.value||''). trim(),prepTime:(inputs[0]?.value||''). trim(),taskType:sel?.value||'仕込み'});
-  });
   const rec={
     id:origId||Date.now(),
     name,
