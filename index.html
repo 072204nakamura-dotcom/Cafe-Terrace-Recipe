@@ -125,12 +125,12 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
 .ing-picker-btn{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;font-family:"Zen Kaku Gothic New",sans-serif;background:#fff;text-align:left;cursor:pointer;color:var(--ink);min-height:34px;display:flex;align-items:center;justify-content:space-between;gap:4px}
 .ing-picker-btn .ipb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .ing-picker-btn .ipb-arrow{color:var(--mid);font-size:10px;flex-shrink:0}
-.ing-picker-pop{position:fixed;inset:0;background:rgba(28,22,18,.5);z-index:600;display:none;align-items:flex-end}
+.ing-picker-pop{position:fixed;inset:0;background:rgba(28,22,18,.5);z-index:600;display:none;align-items:flex-start}
 .ing-picker-pop.open{display:flex;animation:fadeIn .2s ease}
-.ipp-box{background:var(--cream);border-radius:20px 20px 0 0;width:100%;max-width:520px;margin:0 auto;max-height:80vh;display:flex;flex-direction:column;padding:14px 14px calc(20px + env(safe-area-inset-bottom,0px))}
+.ipp-box{background:var(--cream);border-radius:0 0 20px 20px;width:100%;max-width:520px;margin:0 auto;height:85vh;max-height:85vh;display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 14px}
 .ipp-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 12px}
 .ipp-search{width:100%;height:44px;border:1.5px solid var(--gm);border-radius:10px;padding:0 14px;font-size:15px;font-family:"Zen Kaku Gothic New",sans-serif;color:var(--ink);background:#fff;outline:none;margin-bottom:8px;-webkit-appearance:none}
-.ipp-cats{display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+.ipp-cats{display:flex;flex-wrap:wrap;gap:5px;padding-bottom:6px;margin-bottom:6px;max-height:76px;overflow-y:auto}
 .ipp-cats::-webkit-scrollbar{display:none}
 .ipp-cat{flex-shrink:0;padding:4px 11px;border:1.5px solid var(--border);border-radius:16px;background:#fff;font-size:11px;color:var(--mid);cursor:pointer;white-space:nowrap}
 .ipp-cat.on{background:var(--gd);border-color:var(--gd);color:#fff;font-weight:700}
@@ -238,9 +238,12 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
 <!-- 食材検索ポップアップ -->
 <div class="ing-picker-pop" id="ing-picker-pop" onclick="if(event.target===this)closeIngPicker()">
   <div class="ipp-box">
-    <div class="ipp-handle"></div>
-    <input class="ipp-search" id="ipp-search" placeholder="食材名で検索..." oninput="renderPickerList()">
+    <div style="font-family:'Shippori Mincho B1',serif;font-size:14px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <span>食材を選ぶ</span>
+      <button onclick="closeIngPicker()" style="background:none;border:none;font-size:20px;color:var(--mid);cursor:pointer;padding:2px 6px">✕</button>
+    </div>
     <div class="ipp-cats" id="ipp-cats"></div>
+    <input class="ipp-search" id="ipp-search" placeholder="🔍 食材名で検索..." oninput="renderPickerList()">
     <div class="ipp-list" id="ipp-list"></div>
     <button class="ipp-close" onclick="closeIngPicker()">閉じる</button>
   </div>
@@ -696,7 +699,8 @@ function openIngPicker(btn){
   ).join('');
   renderPickerList();
   document.getElementById('ing-picker-pop').classList.add('open');
-  setTimeout(()=>document.getElementById('ipp-search').focus(), 100);
+  // 自動フォーカスしない：カテゴリーで選ぶ人はキーボード不要
+  // 検索したい人がボックスをタップしたときだけキーボードが開く
 }
 
 function pickerSetCat(el, cat){
