@@ -143,6 +143,12 @@ textarea{line-height:1.7;}
 .block-h{display:flex;align-items:center;gap:7px;font-family:'Zen Maru Gothic',sans-serif;
   font-weight:700;font-size:.96rem;color:var(--sage-deep);margin-bottom:9px;}
 .block-h .bar{width:3px;height:15px;background:var(--gold);border-radius:2px;}
+/* 分量の換算チップ */
+.scale-row{display:flex;align-items:center;gap:6px;margin-bottom:9px;flex-wrap:wrap;}
+.scale-chip{border:1px solid var(--line);background:var(--paper);color:var(--muted);
+  border-radius:999px;padding:5px 13px;font-size:.8rem;font-weight:700;transition:.15s;}
+.scale-chip.on{background:var(--gold);color:#fff;border-color:var(--gold);}
+.scale-note{font-size:.7rem;color:var(--muted);margin-left:auto;}
 .block .content{white-space:pre-wrap;font-size:.95rem;line-height:1.85;}
 .memo-box{background:var(--sage-soft);border-radius:13px;padding:14px 16px;border-left:3px solid var(--sage);}
 .memo-box .content{color:var(--sage-deep);}
@@ -573,6 +579,34 @@ async function init(){
   recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   renderChips();
   render();
+  autoLoadFromCloud();   // 開いたとき、クラウドが新しければ自動で取り込む
+}
+
+/* 起動時の自動読み込み：
+   ・この端末が空のとき → クラウドを取り込む
+   ・クラウドの保存時刻が、この端末の最終更新より新しいとき → 取り込む
+   ・この端末の方が新しいとき → 何もしない（編集中の内容を守る） */
+async function autoLoadFromCloud(){
+  if(!SYNC_URL) return;
+  try{
+    const res=await fetch(SYNC_URL+'?key='+encodeURIComponent(SYNC_KEY));
+    const j=await res.json();
+    if(!j.ok||!j.data) return;
+    const parsed=JSON.parse(j.data);
+    const cloudRecipes=Array.isArray(parsed.recipes)?parsed.recipes:[];
+    if(cloudRecipes.length===0) return;
+    const cloudSavedAt=parsed.savedAt||0;
+    const localLatest=recipes.reduce((m,r)=>Math.max(m,r.updatedAt||0),0);
+    const shouldApply = recipes.length===0 || (cloudSavedAt>0 && cloudSavedAt>localLatest);
+    if(!shouldApply) return;
+    if(Array.isArray(parsed.categories)&&parsed.categories.length){ categories=parsed.categories; await idbMetaPut('categories',categories); }
+    await idbClearRecipes();
+    recipes=cloudRecipes;
+    for(const r of recipes){ await idbPut(r); }
+    recipes.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    renderChips(); render();
+    toast('最新のレシピを読み込みました');
+  }catch(_){ /* 通信できないときは、この端末の内容のまま使う */ }
 }
 
 /* ---------- カテゴリーチップ ---------- */
@@ -624,6 +658,7 @@ function render(){
 /* ---------- 詳細 ---------- */
 function openDetail(id){
   const r=recipes.find(x=>x.id===id); if(!r)return;
+  if(currentId!==id) currentScale=1;   // 別のレシピを開いたら×1に戻す
   currentId=id;
   const body=document.getElementById('detailBody');
   const img=r.image
@@ -633,7 +668,7 @@ function openDetail(id){
     ${img}
     <h2>${esc(r.title||'（無題）')}</h2>
     <div class="tagline"><span class="tag">${esc(r.category||'その他')}</span><span class="ver-badge">ver.${r.version||1}</span></div>
-    ${section('材料',r.ingredients)}
+    ${ingredientsBlock(r)}
     ${section('作り方',r.steps)}
     ${r.memo?`<div class="block"><div class="block-h"><span class="bar"></span>自分の味付けメモ</div><div class="memo-box"><div class="content">${esc(r.memo)}</div></div></div>`:''}
     ${r.source?`<div class="block"><div class="block-h"><span class="bar"></span>出典</div><div class="src">${linkify(r.source)}</div></div>`:''}
@@ -675,6 +710,36 @@ function historyBlock(r){
 function section(title,text){
   if(!text||!text.trim())return'';
   return `<div class="block"><div class="block-h"><span class="bar"></span>${title}</div><div class="content">${esc(text)}</div></div>`;
+}
+
+/* ---------- 材料の分量換算（表示のみ・保存データは変えない） ---------- */
+let currentScale=1;
+const SCALES=[[0.5,'×½'],[1,'×1'],[1.5,'×1.5'],[2,'×2'],[3,'×3']];
+function ingredientsBlock(r){
+  if(!r.ingredients||!r.ingredients.trim())return'';
+  const chips=SCALES.map(([v,label])=>
+    `<button class="scale-chip ${v===currentScale?'on':''}" onclick="setScale(${v})">${label}</button>`).join('');
+  return `<div class="block"><div class="block-h"><span class="bar"></span>材料</div>
+    <div class="scale-row">${chips}${currentScale!==1?'<span class="scale-note">※表示のみ換算</span>':''}</div>
+    <div class="content" id="ingContent">${esc(scaleIngredients(r.ingredients,currentScale))}</div>
+  </div>`;
+}
+function setScale(m){
+  currentScale=m;
+  const r=recipes.find(x=>x.id===currentId); if(!r)return;
+  openDetail(currentId);   // チップの状態ごと描き直す
+}
+/* 「80g」「30ml」「2個」などの数字だけを倍率で換算する */
+function scaleIngredients(text,m){
+  if(m===1) return text;
+  const UNITS='kg|g|ml|L|l|cc|個|枚|本|尾|匹|片|かけ|玉|束|袋|缶|丁|切れ|房|粒|株';
+  const re=new RegExp('(\\d+(?:\\.\\d+)?)(\\s*)('+UNITS+')(?![a-zA-Z])','g');
+  return text.replace(re,(_,num,sp,unit)=>{
+    let v=parseFloat(num)*m;
+    if(unit==='kg'||unit==='L'||unit==='l'){ v=Math.round(v*100)/100; }
+    else{ v=Math.round(v*10)/10; if(Number.isInteger(v)) v=Math.round(v); }
+    return v+sp+unit;
+  });
 }
 
 /* ---------- フォーム ---------- */
@@ -899,7 +964,7 @@ async function saveToCloud(){
   if(!SYNC_URL){ alert('先にGASの設定が必要です。\n設定手順にそって SYNC_URL を入れてください。'); return; }
   if(recipes.length===0){ toast('レシピがまだありません'); return; }
   toast('クラウドに保存中…');
-  const payload=JSON.stringify({key:SYNC_KEY, data:JSON.stringify({recipes,categories})});
+  const payload=JSON.stringify({key:SYNC_KEY, data:JSON.stringify({recipes,categories,savedAt:Date.now()})});
   try{
     // 保存は no-cors + text/plain（GAS連携の鉄則）。レスポンスは読めないので送信できたら成功とみなす
     await fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:payload});

@@ -201,7 +201,7 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
     <div style="font-size:32px;margin-bottom:6px">📷</div>
     <div style="font-family:'Shippori Mincho B1',serif;font-size:14px;font-weight:700;margin-bottom:3px">今すぐ撮影 または 写真を選ぶ</div>
     <div style="font-size:11px;color:var(--mid)">JPG・PNG・PDF対応</div>
-    <input type="file" accept="image/*,.pdf" capture="environment" id="inv-file" onchange="handleInvFile(event)">
+    <input type="file" accept="image/*,.pdf" id="inv-file" onchange="handleInvFile(event)">
   </div>
   <div id="inv-preview-wrap" style="display:none;margin-bottom:10px">
     <img id="inv-preview-img" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;border:1px solid var(--border)">
