@@ -221,6 +221,12 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
         <button id="inv-bulk-btn" onclick="applyBulkSupplier(false)" oncontextmenu="event.preventDefault();applyBulkSupplier(true)" style="flex-shrink:0;padding:8px 14px;background:var(--gd);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Shippori Mincho B1',serif;touch-action:manipulation">全行に適用</button>
       </div>
       <div style="font-size:10px;color:var(--mid);margin-top:5px">業者が空欄の行だけに入力するには長押し（PC:右クリック）</div>
+      <div style="font-size:11px;font-weight:700;color:var(--ink);margin:10px 0 6px">🗂 カテゴリーを一括設定</div>
+      <div style="display:flex;gap:6px">
+        <select id="inv-bulk-cat" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:8px 8px;font-size:13px;font-family:'Zen Kaku Gothic New',sans-serif;-webkit-appearance:none;background:#fff"></select>
+        <button onclick="applyBulkCategory(false)" oncontextmenu="event.preventDefault();applyBulkCategory(true)" style="flex-shrink:0;padding:8px 14px;background:var(--gd);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Shippori Mincho B1',serif;touch-action:manipulation">全行に適用</button>
+      </div>
+      <div style="font-size:10px;color:var(--mid);margin-top:5px">新規の行だけに設定するには長押し（PC:右クリック）</div>
     </div>
     <div class="card" style="margin:0 0 10px;padding:10px 12px">
       <div style="padding:3px 0 6px;font-size:10px;color:var(--mid);border-bottom:1px solid var(--border)">
@@ -873,6 +879,15 @@ function renderIngs(){
         '<span class="ef-sub">円 /</span>'+
         '<input class="ef-inp" value="'+esc(ing.unit)+'" data-field="unit" style="max-width:55px">'+
       '</div>'+
+      '<div class="ef-row"><span class="ef-lbl">単価計算</span>'+
+        '<div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">'+
+          '<span style="font-size:11px;color:var(--mid)">¥</span>'+
+          '<input type="number" step="0.01" data-calc-amt placeholder="金額" style="width:78px;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;font-size:13px;background:#fff;-webkit-appearance:none">'+
+          '<span style="font-size:12px;color:var(--mid)">÷</span>'+
+          '<input type="number" step="0.01" data-calc-qty placeholder="入数/g" style="width:78px;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;font-size:13px;background:#fff;-webkit-appearance:none">'+
+          '<button data-calc-do style="padding:7px 12px;background:var(--gm);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation">= 単価にする</button>'+
+        '</div>'+
+      '</div>'+
       '<div class="ef-row"><span class="ef-lbl">歩留まり</span>'+
         '<input class="ef-inp" type="number" min="1" max="100" step="0.1" value="'+yr+'" data-field="yieldRate" style="max-width:75px">'+
         '<span class="ef-sub">%　（100%=歩留なし）</span>'+
@@ -887,6 +902,18 @@ function renderIngs(){
         '<button class="btn-ef btn-ef-g" data-action="save">💾 保存</button>'+
         '<button class="btn-ef btn-ef-r" data-action="delete">削除</button>'+
       '</div>';
+    const calcBtn2 = form.querySelector('[data-calc-do]');
+    if(calcBtn2){
+      calcBtn2.addEventListener('click',function(){
+        const a = numOf(form.querySelector('[data-calc-amt]').value);
+        const q = numOf(form.querySelector('[data-calc-qty]').value);
+        if(!a || !q){ showToast('⚠️ 金額と入数（またはg数）を入れてください'); return; }
+        const p = Math.round((a/q)*10000)/10000;
+        const priceInp = form.querySelector('input[data-field="unitPrice"]');
+        if(priceInp) priceInp.value = p;
+        showToast('✅ 単価を ¥'+p+' にしました（保存で確定）');
+      });
+    }
     form.querySelector('[data-action="save"]').addEventListener('click',()=>saveIngCard(card,ing.id));
     form.querySelector('[data-action="delete"]').addEventListener('click',()=>deleteIng(ing.id));
     expand.appendChild(form); card.appendChild(head); card.appendChild(priceDiv); card.appendChild(expand);
@@ -985,7 +1012,7 @@ async function analyzeInvoice(){
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:invState.mime,data:invState.b64.split(',')[1]}},
-          {type:'text',text:'この納品書から食材情報を全て抽出してください。JSONのみ返してください（前置き・コードブロック不要）:\n[{"name":"商品名","supplier":"業者名","unitPrice":1単位あたりの数値,"unit":"g or ml or 個 or 本 or 袋 or 尾","taxRate":0.08}]\n単価換算: 1kg=2000円→unitPrice:2,unit:"g" / 500ml=750円→unitPrice:1.5,unit:"ml"\n除外: 合計・送料・税額行。JSONのみ。'}
+          {type:'text',text:'この納品書から食材情報を全て抽出してください。JSONのみ返してください（前置き・コードブロック不要）:\n[{"name":"商品名","supplier":"業者名","unitPrice":1単位あたりの数値,"unit":"g or ml or 個 or 本 or 袋 or 尾","taxRate":0.08,"packSize":"伝票の容量表記(例:500g)","packPrice":伝票の単価の数値,"packQty":数量の数値,"amount":金額の数値}]\n単価換算: 1kg=2000円→unitPrice:2,unit:"g" / 500ml=750円→unitPrice:1.5,unit:"ml"\npackPrice・packQty・amountは伝票に印字された数字をそのまま入れる（換算しない）。カンマや円記号は付けず数値のみ。\n除外: 合計・送料・税額行。JSONのみ。'}
         ]}]})
     });
     const data=await res.json();
@@ -995,6 +1022,41 @@ async function analyzeInvoice(){
     invState.items=items; renderInvResult(items);
   }catch(e){ const err=document.getElementById('inv-err'); err.textContent='⚠️ '+e.message; err.style.display=''; }
   finally{ btn.disabled=false; btn.style.opacity='1'; document.getElementById('inv-loading').style.display='none'; }
+}
+
+// 「1,500」「¥460」などが来ても数値として取り出す
+function numOf(v){
+  if(v===null||v===undefined||v==='') return 0;
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
+// カテゴリーを一括設定（newOnly=true なら新規の行だけ）
+function applyBulkCategory(newOnly){
+  const cat = document.getElementById('inv-bulk-cat').value;
+  if(!cat){ showToast('⚠️ カテゴリーを選んでください'); return; }
+  if(!invState.items || !invState.items.length){ showToast('⚠️ 読み取り結果がありません'); return; }
+  const s = load();
+  let count = 0;
+  invState.items.forEach(item=>{
+    if(!item || !item.name) return;
+    if(newOnly){
+      // マスターに無い（＝新規）行だけ
+      const itemName = item.name.replace(/\s/g,'');
+      const ex = s.ingredients.find(i=>{
+        if(!i.name) return false;
+        const iName = i.name.replace(/\s/g,'');
+        return iName===itemName || iName.includes(itemName) || itemName.includes(iName);
+      });
+      if(ex) return;
+    }
+    item.category = cat;
+    item._catEdited = true;
+    count++;
+  });
+  renderInvResult(invState.items);
+  document.getElementById('inv-bulk-cat').value = cat;
+  showToast('✅ '+count+'件を「'+cat+'」にしました');
 }
 
 // 業者名を一括設定
@@ -1022,6 +1084,24 @@ function renderInvResult(items){
     const ex=s.ingredients.find(i=>i.name.replace(/\s/g,'')=== item.name.replace(/\s/g,'')||i.name.includes(item.name)||item.name.includes(i.name));
     let st,sc2;
     if(!ex){st='新規';sc2='is-new';nc++;}else if(Math.abs(ex.unitPrice-item.unitPrice)>0.0001){st='更新';sc2='is-update';uc++;}else{st='変更なし';sc2='is-same';sc++;}
+    // 単価を必ず数値にする（カンマ等で空欄になるのを防ぐ）
+    item.unitPrice = numOf(item.unitPrice);
+    // 伝票に印字されていた数字（確認用）
+    const pp = numOf(item.packPrice), pq = numOf(item.packQty), am = numOf(item.amount);
+    const sizeNum = numOf(item.packSize);
+    const refParts = [];
+    if(pp) refParts.push('単価 ¥'+pp.toLocaleString('ja-JP'));
+    if(pq) refParts.push('× '+pq);
+    if(am) refParts.push('= ¥'+am.toLocaleString('ja-JP'));
+    if(item.packSize) refParts.push('（'+esc(item.packSize)+'）');
+    const refHtml = refParts.length
+      ? '<div style="font-size:11px;color:var(--mid);background:var(--light);border-radius:6px;padding:4px 8px;margin-bottom:5px">📄 伝票 '+refParts.join(' ')+'</div>'
+      : '';
+    // カテゴリーの初期値：既存食材があればそのカテゴリー、無ければ「その他」
+    const defCat = ex ? (ex.category||'その他') : (item.category||'その他');
+    if(!item.category) item.category = defCat;
+    const catOpts = ING_CATS.filter(c=>c!=='すべて')
+      .map(c=>'<option'+(c===item.category?' selected':'')+'>'+esc(c)+'</option>').join('');
     const row=document.createElement('div');
     row.className='inv-result-row';
     row.dataset.itemIdx = itemIdx;
@@ -1032,13 +1112,24 @@ function renderInvResult(items){
         '<span class="inv-status '+sc2+'">'+st+'</span>'+
         '<button data-inv-del style="background:none;border:none;font-size:16px;color:var(--red);cursor:pointer;padding:2px 6px;flex-shrink:0">✕</button>'+
       '</div>'+
+      refHtml+
       '<div style="display:flex;align-items:center;gap:6px">'+
-        '<span style="font-size:11px;color:var(--mid)">¥</span>'+
-        '<input type="number" step="0.0001" value="'+item.unitPrice+'" data-inv-f="unitPrice" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-weight:700;color:var(--gd);-webkit-appearance:none">'+
+        '<span style="font-size:10px;color:var(--mid);flex-shrink:0">換算 ¥</span>'+
+        '<input type="number" step="0.0001" value="'+item.unitPrice+'" data-inv-f="unitPrice" style="width:100px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:14px;font-weight:700;color:var(--gd);background:#fff;-webkit-appearance:none">'+
         '<span style="font-size:11px;color:var(--mid)">/</span>'+
         '<input value="'+esc(item.unit)+'" data-inv-f="unit" style="width:50px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;-webkit-appearance:none">'+
-        '<input value="'+esc(item.supplier||'')+'" data-inv-f="supplier" placeholder="業者" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--mid);-webkit-appearance:none">'+
         (ex&&st==='更新'?'<span style="font-size:10px;color:var(--mid);text-decoration:line-through;white-space:nowrap">¥'+ex.unitPrice+'</span>':'')+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:4px;margin-top:5px;background:var(--gxl);border-radius:6px;padding:5px 6px">'+
+        '<span style="font-size:10px;color:var(--mid);flex-shrink:0">🧮 ¥</span>'+
+        '<input type="number" step="0.01" data-calc-amt value="'+( am||pp||'')+'" placeholder="金額" style="width:74px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12px;-webkit-appearance:none">'+
+        '<span style="font-size:11px;color:var(--mid);flex-shrink:0">÷</span>'+
+        '<input type="number" step="0.01" data-calc-qty value="'+( sizeNum||'')+'" placeholder="入数/g" style="width:70px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12px;-webkit-appearance:none">'+
+        '<button data-calc-do style="flex:1;min-width:0;padding:5px 6px;background:var(--gm);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;touch-action:manipulation">= 単価にする</button>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-top:5px">'+
+        '<select data-inv-f="category" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:12px;background:#fff;color:var(--ink);font-family:\'Zen Kaku Gothic New\',sans-serif;-webkit-appearance:none">'+catOpts+'</select>'+
+        '<input value="'+esc(item.supplier||'')+'" data-inv-f="supplier" placeholder="業者" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--mid);-webkit-appearance:none">'+
       '</div>';
     // 入力変更を invState.items に反映
     row.querySelectorAll('[data-inv-f]').forEach(inp=>{
@@ -1048,6 +1139,28 @@ function renderInvResult(items){
         invState.items[itemIdx][f] = (f==='unitPrice') ? (parseFloat(v)||0) : v;
       });
     });
+    // カテゴリーを手動で変えた行だけ印をつける
+    const catSel = row.querySelector('select[data-inv-f="category"]');
+    if(catSel){
+      catSel.addEventListener('change', function(){
+        invState.items[itemIdx].category = this.value;
+        invState.items[itemIdx]._catEdited = true;
+      });
+    }
+    // 電卓：金額 ÷ 入数(g) = 単価
+    const calcBtn = row.querySelector('[data-calc-do]');
+    if(calcBtn){
+      calcBtn.addEventListener('click', function(){
+        const a = numOf(row.querySelector('[data-calc-amt]').value);
+        const q = numOf(row.querySelector('[data-calc-qty]').value);
+        if(!a || !q){ showToast('⚠️ 金額と入数（またはg数）を入れてください'); return; }
+        const p = Math.round((a/q)*10000)/10000;
+        invState.items[itemIdx].unitPrice = p;
+        const priceInp = row.querySelector('input[data-inv-f="unitPrice"]');
+        if(priceInp) priceInp.value = p;
+        showToast('✅ 単価を ¥'+p+' にしました');
+      });
+    }
     // 削除ボタン
     row.querySelector('[data-inv-del]').addEventListener('click', function(){
       if(!confirm('「'+item.name+'」を取り込み対象から外しますか？')) return;
@@ -1056,6 +1169,12 @@ function renderInvResult(items){
     });
     list.appendChild(row);
   });
+  // 一括カテゴリーの選択肢を用意（初回のみ）
+  const bulkCat = document.getElementById('inv-bulk-cat');
+  if(bulkCat && !bulkCat.options.length){
+    bulkCat.innerHTML = ING_CATS.filter(c=>c!=='すべて')
+      .map(c=>'<option'+(c==='その他'?' selected':'')+'>'+esc(c)+'</option>').join('');
+  }
   document.getElementById('inv-summary').textContent='新規 '+nc+' / 更新 '+uc+' / 変更なし '+sc;
   document.getElementById('inv-result-wrap').style.display='';
 }
@@ -1073,9 +1192,11 @@ function applyInvoice(){
     });
     if(idx >= 0){
       // 既存食材の単価を更新
-      s.ingredients[idx].unitPrice = item.unitPrice;
+      s.ingredients[idx].unitPrice = numOf(item.unitPrice);
       if(item.unit) s.ingredients[idx].unit = item.unit;
       if(item.supplier) s.ingredients[idx].supplier = item.supplier;
+      // カテゴリーは手動で変えた行だけ反映（既存の登録を勝手に壊さない）
+      if(item._catEdited && item.category) s.ingredients[idx].category = item.category;
       updated++;
     } else {
       // 新規食材として先頭に追加（すぐ見えるように）
@@ -1084,11 +1205,11 @@ function applyInvoice(){
         id: maxId+1,
         name: item.name,
         supplier: item.supplier || '',
-        unitPrice: item.unitPrice || 0,
+        unitPrice: numOf(item.unitPrice),
         unit: item.unit || 'g',
         taxRate: item.taxRate || 0.08,
         yieldRate: 100,
-        category: 'その他'
+        category: item.category || 'その他'
       });
       added++;
     }
