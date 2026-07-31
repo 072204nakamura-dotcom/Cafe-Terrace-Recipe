@@ -187,7 +187,7 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
     </div>
     <div class="cat-scroll" id="ing-cat-btns"></div>
   </div>
-  <div class="count-bar"><span>表示中 <strong id="ing-count">–</strong> 品目</span><span style="font-size:10px">タップで展開・編集</span></div>
+  <div class="count-bar"><span>表示中 <strong id="ing-count">–</strong> 品目</span><button onclick="autoSortCategories(true)" oncontextmenu="event.preventDefault();autoSortCategories(false)" style="background:var(--gxl);border:1px solid var(--gl);color:var(--gd);border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Shippori Mincho B1',serif;touch-action:manipulation">🗂 その他を仕分け</button></div>
   <div id="ing-list"></div>
 </div>
 
@@ -1024,6 +1024,39 @@ async function analyzeInvoice(){
     invState.items=items; renderInvResult(items);
   }catch(e){ const err=document.getElementById('inv-err'); err.textContent='⚠️ '+e.message; err.style.display=''; }
   finally{ btn.disabled=false; btn.style.opacity='1'; document.getElementById('inv-loading').style.display='none'; }
+}
+
+// 全品目のカテゴリーを商品名から振り分け直す（手動実行）
+function autoSortCategories(otherOnly){
+  const s = load();
+  if(!s.ingredients || !s.ingredients.length){ showToast('⚠️ 食材がありません'); return; }
+  const targets = otherOnly
+    ? s.ingredients.filter(i=>i && (!i.category || i.category==='その他'))
+    : s.ingredients.filter(i=>i && i.name);
+  if(!targets.length){ showToast('✅ 「その他」の食材はありません'); return; }
+  const msg = otherOnly
+    ? '「その他」に入っている'+targets.length+'品目を、商品名から自動で振り分けます。\n\n他のカテゴリーの食材はそのままです。\nよろしいですか？'
+    : '全'+targets.length+'品目のカテゴリーを、商品名から振り分け直します。\n\n※手動で設定したカテゴリーも上書きされます。\nよろしいですか？';
+  if(!confirm(msg)) return;
+  let changed = 0;
+  targets.forEach(i=>{
+    if(!i || !i.name) return;
+    const g = guessCategory(i.name);
+    if(i.category !== g){ i.category = g; changed++; }
+  });
+  _store = s;
+  localStorage.setItem('cafe_teru_v2', JSON.stringify(s));
+  if(GAS_URL){
+    try{
+      fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'save_ingredients',data:{ingredients:s.ingredients}})});
+    }catch(e){}
+  }
+  activeIngCatLocal = 'すべて';
+  const qBox = document.getElementById('ing-q'); if(qBox) qBox.value='';
+  document.querySelectorAll('#ing-cat-btns .cat-btn').forEach(b=>b.classList.toggle('on', b.textContent==='すべて'));
+  renderIngs();
+  showToast('✅ '+changed+'品目を振り分け直しました');
 }
 
 // 古いカテゴリー（アクト等）を新しいカテゴリーに自動で振り分ける
