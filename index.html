@@ -204,6 +204,7 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
     <div style="font-size:11px;color:var(--mid)">JPG・PNG・PDF対応</div>
     <input type="file" accept="image/*,.pdf" id="inv-file" onchange="handleInvFile(event)">
   </div>
+  <button onclick="addInvRow()" style="width:100%;margin-bottom:10px;padding:11px;background:#fff;border:1.5px solid var(--gd);border-radius:10px;color:var(--gd);font-family:'Shippori Mincho B1',serif;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">✏️ 手入力で商品を追加</button>
   <div id="inv-preview-wrap" style="display:none;margin-bottom:10px">
     <img id="inv-preview-img" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;border:1px solid var(--border)">
   </div>
@@ -235,6 +236,7 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
       </div>
       <div id="inv-result-list"></div>
     </div>
+    <button onclick="addInvRow()" style="width:100%;margin-bottom:8px;padding:10px;background:#fff;border:1.5px dashed var(--border);border-radius:10px;color:var(--mid);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation">＋ 行を追加（手入力）</button>
     <button class="btn-main btn-m-g" onclick="applyInvoice()" style="width:100%;margin-bottom:8px">✅ 全て上書き保存</button>
     <button class="btn-sub" onclick="resetInvoice()" style="width:100%">← 撮り直す</button>
   </div>
@@ -1210,7 +1212,7 @@ async function analyzeInvoice(){
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:invState.mime,data:invState.b64.split(',')[1]}},
-          {type:'text',text:'この納品書から食材情報を全て抽出してください。JSONのみ返してください（前置き・コードブロック不要）:\n[{"name":"商品名","supplier":"業者名","unitPrice":1単位あたりの数値,"unit":"g or ml or 個 or 本 or 袋 or 尾","taxRate":0.08,"packSize":"伝票の容量表記(例:500g)","packPrice":伝票の単価の数値,"packQty":数量の数値,"amount":金額の数値}]\n単価換算: 1kg=2000円→unitPrice:2,unit:"g" / 500ml=750円→unitPrice:1.5,unit:"ml"\npackPrice・packQty・amountは伝票に印字された数字をそのまま入れる（換算しない）。カンマや円記号は付けず数値のみ。\n除外: 合計・送料・税額行。JSONのみ。'}
+          {type:'text',text:'この納品書に印字されている商品を全て抽出してください。食材だけでなく、容器・包装資材・消耗品（カップ、フタ、パック、トレー、袋、ラップ、ホイル、紙製品など）も必ず含めてください。JSONのみ返してください（前置き・コードブロック不要）:\n[{"name":"商品名","supplier":"業者名","unitPrice":1単位あたりの数値,"unit":"g or ml or 個 or 枚 or 本 or 袋 or 尾 or セット","taxRate":0.08,"packSize":"伝票の容量・入数表記(例:500g、100枚入)","packPrice":伝票の単価の数値,"packQty":数量の数値,"amount":金額の数値}]\n重量・容量の商品は換算する: 1kg=2000円→unitPrice:2,unit:"g" / 500ml=750円→unitPrice:1.5,unit:"ml"\n容器・資材など個数で数える商品は換算せず、1個(1枚)あたりの金額をunitPriceにしてunitは"個"や"枚"にする。例: 100枚入1200円→unitPrice:12,unit:"枚"\n入数が読み取れない場合はunitPriceに伝票の単価をそのまま入れ、unitは"個"にする。\npackPrice・packQty・amountは伝票に印字された数字をそのまま入れる（換算しない）。カンマや円記号は付けず数値のみ。\n除外するのは合計・小計・送料・税額の行だけ。JSONのみ。'}
         ]}]})
     });
     const data=await res.json();
@@ -1258,8 +1260,7 @@ function autoSortCategories(otherOnly){
 // 古いカテゴリー（アクト等）を新しいカテゴリーに自動で振り分ける
 const CAT_RULES = [
   ['デザート商材',  /クーベルチュール|チョコ|ココア|カカオ|アーモンド|タルト|トルテ|ワッフル|粉糖|パウダーシュガー|プードルデコール|ゼラチン|寒天|バニラ|カスタード|アイスクリーム|ジェラート|ムース|マカロン|ピスタチオ|ヘーゼル/],
-  ['消耗品',        /ホイル|ラップ|クッキングシート|マット|ペーパー|シェフプレミアム/],
-  ['容器',          /ココット|容器|トレー|スリーブ|紙コップ/],
+  ['消耗品',        /ホイル|ラップ|クッキングシート|クッキングペーパー|マット|ペーパー|おしぼり|手袋|ゴミ|洗剤|スポンジ|シェフプレミアム|ストロー|楊枝|ようじ|割り箸|割箸/],
   ['調味料',        /料理酒|みりん|ビネガー|酢|ケチャップ|ナンプラー|ぽん|コチュジャン|甜麵醬|甜麺醤|チャツネ|練りごま|マスタード|にがり|だし|出汁|コンソメ|スープベース|わさび|胡椒|こしょう|マヨネーズ|唐辛子|オールスパイス|サフラン|カレーパウダー|きびあじ|ブレンド|ソース|ドレッシング|味噌|すり胡麻|いり胡麻|チョコシロップ/],
   ['飲料品',        /ノンAL|ノンアル|ZERO|ジュース|コーラ|烏龍|紅茶|アイスティー|コーヒー|ジンジャーエール|J100|完熟林檎|ガムシロップ/],
   ['酒類',          /ワイン|ビール|ラガー|スーパードライ|アサヒ樽|純米|上撰|ポート|ノイリー|V．O|焼酎|ブランデー|リキュール|サンジョベーゼ|トレッビアーノ/],
@@ -1273,6 +1274,7 @@ const CAT_RULES = [
   ['粉、粉製品',    /粉|パスタ|レガーロ|ペンネ|クスクス|リングイネ|マカロニ|パイ|フィロー|カダイフ|イースト|プードル|スターチ|ゆめちから/],
   ['野菜、果物',    /ベリー|マンゴー|レモン|林檎|りんご|バナナ|ぶどう|パイン|ザクロ|グレープフルーツ/],
   ['野菜加工品',    /ソフリット|らっきょう|コーン|パセリ|ひじき|生姜|ケーパー|オリーブ|トマト|ニンニク|ポテト|きのこ|野菜|ココナッツ/],
+  ['容器',          /ココット|容器|トレー|トレイ|スリーブ|紙コップ|カップ|フタ|蓋|ボックス|ランチ|デリカ|テイクアウト|折箱|丼|パック|バット|ケース|袋/],
 ];
 function guessCategory(name){
   for(const [cat, re_] of CAT_RULES){ if(re_.test(name||'')) return cat; }
@@ -1337,6 +1339,23 @@ function applyBulkSupplier(emptyOnly){
   showToast('✅ '+count+'件に「'+name+'」を設定しました');
 }
 
+// 手入力で1行追加する（写真が読めない商品用）
+function addInvRow(){
+  if(!invState.items) invState.items = [];
+  invState.items.push({ name:'', unitPrice:0, unit:'個', supplier:'', category:'その他' });
+  document.getElementById('inv-result-wrap').style.display = '';
+  renderInvResult(invState.items);
+  // 追加した行の食材名にカーソルを合わせる
+  setTimeout(()=>{
+    const rows = document.querySelectorAll('#inv-result-list .inv-result-row');
+    const last = rows[rows.length-1];
+    if(last){
+      const inp = last.querySelector('input[data-inv-f="name"]');
+      if(inp){ inp.focus(); inp.scrollIntoView({behavior:'smooth', block:'center'}); }
+    }
+  }, 100);
+}
+
 function renderInvResult(items){
   const s=load();
   const UNIT_NORM={'ｇ':'g','Ｇ':'g','㎖':'ml','ｍｌ':'ml','ｋｇ':'kg','㎏':'kg'};
@@ -1344,7 +1363,7 @@ function renderInvResult(items){
   const list=document.getElementById('inv-result-list'); list.innerHTML='';
   items.forEach((item, itemIdx)=>{
     item.unit=UNIT_NORM[item.unit]||item.unit||'g';
-    const ex=s.ingredients.find(i=>i.name.replace(/\s/g,'')=== item.name.replace(/\s/g,'')||i.name.includes(item.name)||item.name.includes(i.name));
+    const ex = !item.name ? null : s.ingredients.find(i=>i.name && (i.name.replace(/\s/g,'')===item.name.replace(/\s/g,'')||i.name.includes(item.name)||item.name.includes(i.name)));
     let st,sc2;
     if(!ex){st='新規';sc2='is-new';nc++;}else if(Math.abs(ex.unitPrice-item.unitPrice)>0.0001){st='更新';sc2='is-update';uc++;}else{st='変更なし';sc2='is-same';sc++;}
     // 単価を必ず数値にする（カンマ等で空欄になるのを防ぐ）
