@@ -165,6 +165,11 @@ body{background:var(--bg);font-family:"Zen Kaku Gothic New",sans-serif;color:var
   <button class="tab-btn" id="tab-invoice" onclick="switchTab('invoice')"><span class="ico">📷</span>納品書</button>
 </div>
 
+<div style="background:var(--cream);border-bottom:1px solid var(--border);padding:7px 12px;display:flex;gap:8px;justify-content:center">
+  <a href="manual.html" target="_blank" style="flex:1;text-align:center;padding:7px;background:#fff;border:1.5px solid var(--border);border-radius:8px;color:var(--mid);font-size:12px;font-weight:700;text-decoration:none;font-family:'Shippori Mincho B1',serif">❓ 使い方</a>
+  <button onclick="openFeedback()" style="flex:1;padding:7px;background:#fff;border:1.5px solid var(--gl);border-radius:8px;color:var(--gd);font-size:12px;font-weight:700;cursor:pointer;font-family:'Shippori Mincho B1',serif;touch-action:manipulation">💬 ご意見箱</button>
+</div>
+
 <!-- ====== レシピタブ ====== -->
 <div id="pane-recipe">
   <div class="toolbar">
@@ -569,6 +574,58 @@ function renderRecipes(){
   });
 }
 
+
+// ===================================================
+// ご意見箱
+// ===================================================
+function openFeedback(){
+  const kinds = ['困っている','こうしてほしい','不具合','その他'];
+  document.getElementById('recipe-modal-body').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+      '<div style="font-family:\'Shippori Mincho B1\',serif;font-size:17px;font-weight:800">💬 ご意見箱</div>'+
+      '<button onclick="closeRecipeModal()" style="background:none;border:none;font-size:22px;color:var(--mid);cursor:pointer">✕</button>'+
+    '</div>'+
+    '<div style="font-size:12px;color:var(--mid);line-height:1.8;margin-bottom:10px">使いにくいところ、分からないところ、「こうなれば便利」を送ってください。小さなことでも大歓迎です。</div>'+
+    '<div class="sec-body" style="padding:10px 12px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--mid);margin-bottom:5px">お名前（任意）</div>'+
+      '<input id="fb-name" placeholder="書かなくてもOK" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:14px;font-family:\'Zen Kaku Gothic New\',sans-serif;margin-bottom:10px;-webkit-appearance:none">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--mid);margin-bottom:5px">種類</div>'+
+      '<div id="fb-kinds" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">'+
+        kinds.map((k,i)=>'<button type="button" class="fb-kind'+(i===0?' on':'')+'" onclick="pickFbKind(this)" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:16px;background:'+(i===0?'var(--gd)':'#fff')+';color:'+(i===0?'#fff':'var(--mid)')+';font-size:12px;font-weight:700;cursor:pointer">'+k+'</button>').join('')+
+      '</div>'+
+      '<div style="font-size:11px;font-weight:700;color:var(--mid);margin-bottom:5px">内容</div>'+
+      '<textarea id="fb-text" rows="6" placeholder="例：食材を探すときに◯◯が出てこない／原価の見方が分かりにくい" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:14px;font-family:\'Zen Kaku Gothic New\',sans-serif;line-height:1.8;-webkit-appearance:none;resize:vertical"></textarea>'+
+    '</div>'+
+    '<button class="btn-ef btn-ef-g" style="width:100%;margin-top:10px" onclick="sendFeedback()">送信する</button>'+
+    '<button class="btn-ef" style="width:100%;margin-top:8px;border:none;background:transparent;font-size:13px;color:var(--mid)" onclick="closeRecipeModal()">キャンセル</button>';
+  document.getElementById('recipe-modal').classList.add('open');
+  document.querySelector('#recipe-modal .modal-box').scrollTop=0;
+}
+
+function pickFbKind(el){
+  document.querySelectorAll('#fb-kinds .fb-kind').forEach(b=>{
+    b.classList.remove('on'); b.style.background='#fff'; b.style.color='var(--mid)';
+  });
+  el.classList.add('on'); el.style.background='var(--gd)'; el.style.color='#fff';
+}
+
+function sendFeedback(){
+  const text = (document.getElementById('fb-text').value||'').trim();
+  if(!text){ showToast('⚠️ 内容を書いてください'); return; }
+  const name = (document.getElementById('fb-name').value||'').trim();
+  const kindEl = document.querySelector('#fb-kinds .fb-kind.on');
+  const kind = kindEl ? kindEl.textContent : 'その他';
+  if(!GAS_URL){ showToast('⚠️ クラウド設定がまだです'); return; }
+  try{
+    fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'save_feedback', data:{ feedback:{
+        at: new Date().toLocaleString('ja-JP'),
+        name: name, kind: kind, text: text
+      }}})});
+  }catch(e){}
+  closeRecipeModal();
+  showToast('✅ 送信しました。ありがとうございます');
+}
 
 // ===================================================
 // レシピ帳アプリからの取込
