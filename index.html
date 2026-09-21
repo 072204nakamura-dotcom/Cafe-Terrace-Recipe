@@ -670,13 +670,19 @@ const SPOON = { '大さじ':15, '大匙':15, '小さじ':5, '小匙':5, 'カッ�
 function openImportModal(){
   document.getElementById('recipe-modal-body').innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
-      '<div style="font-family:\'Shippori Mincho B1\',serif;font-size:17px;font-weight:800">📥 レシピ帳から取込</div>'+
+      '<div style="font-family:\'Shippori Mincho B1\',serif;font-size:17px;font-weight:800">📥 レシピを取り込む</div>'+
       '<button onclick="closeRecipeModal()" style="background:none;border:none;font-size:22px;color:var(--mid);cursor:pointer">✕</button>'+
     '</div>'+
     '<div style="font-size:12px;color:var(--mid);line-height:1.8;margin-bottom:10px">'+
-      'レシピ帳アプリの材料をコピーして下に貼り付けてください。<br>'+
+      'レシピ帳・お惣菜レシピ帳から選ぶと、材料を読み込んで原価を計算します。<br>'+
       '食材名を自動で照合して原価を計算します。'+
     '</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:10px">'+
+      '<button type="button" onclick="loadLinked(\'notebook\')" style="flex:1;padding:12px 6px;background:var(--gxl);border:1.5px solid var(--gm);border-radius:10px;color:var(--gd);font-family:\'Shippori Mincho B1\',serif;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">📓 レシピ帳<br><span style="font-size:12px;font-weight:500">から選ぶ</span></button>'+
+      '<button type="button" onclick="loadLinked(\'sozai\')" style="flex:1;padding:12px 6px;background:var(--gxl);border:1.5px solid var(--gm);border-radius:10px;color:var(--gd);font-family:\'Shippori Mincho B1\',serif;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">🥡 お惣菜レシピ帳<br><span style="font-size:12px;font-weight:500">から選ぶ</span></button>'+
+    '</div>'+
+    '<div id="imp-linked" style="display:none;margin-bottom:12px"></div>'+
+    '<div style="font-size:12px;color:var(--mid);text-align:center;margin:4px 0 8px">── または、材料を貼り付けて取り込む ──</div>'+
     '<div class="sec-hd"><span class="sec-hd-ttl">レシピ名</span></div>'+
     '<div class="sec-body" style="padding:8px 12px">'+
       '<input id="imp-name" placeholder="例：熟成鶏のステーキ" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:14px;font-family:\'Zen Kaku Gothic New\',sans-serif;-webkit-appearance:none">'+
@@ -693,37 +699,49 @@ function openImportModal(){
 }
 
 // 1行を「食材名・分量・単位」に分解する
+// 「1/2」「1と1/2」「1.5」を数値にする
+function fracNum(s){
+  s = toHalf(String(s||'')).trim();
+  let m = s.match(/^(\d+)\s*と\s*(\d+)\s*\/\s*(\d+)$/);
+  if(m) return parseInt(m[1]) + parseInt(m[2])/parseInt(m[3]);
+  m = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if(m) return parseFloat(m[1]) / parseFloat(m[2]);
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// 1行を「食材名・分量・単位」に分解する
 function parseImportLine(line){
-  let t = String(line).trim();
+  let t = toHalf(String(line)).trim();
   if(!t) return null;
   // 箇条書き記号・番号を取る
   t = t.replace(/^[・\-\*\u30fb\u25cf\u25cb\u25a0\u25a1\s]+/, '').replace(/^\d+[\.\)]\s*/, '');
-  if(!t) return null;
-  // 「…：200g」「… 200g」のような分量部分を探す
+  // 名前と分量のあいだの点線（……・‥・...・・・）を空白に
+  t = t.replace(/[…‥]+/g,' ').replace(/\.{2,}/g,' ').replace(/・{2,}/g,' ').replace(/[─―－ー]{2,}/g,' ');
+  if(!t.trim()) return null;
   let qty = 0, unit = '';
-  // 大さじ・小さじ・カップ
-  const sp = t.match(/(大さじ|大匙|小さじ|小匙|カップ)\s*([0-9０-９./]+)/);
+  const NUM = '(\\d+\\s*と\\s*\\d+\\s*\\/\\s*\\d+|\\d+(?:\\.\\d+)?(?:\\s*\\/\\s*\\d+)?)';
+  // 大さじ・小さじ・カップ（大さじ1/2 にも対応）
+  const sp = t.match(new RegExp('(大さじ|大匙|小さじ|小匙|カップ)\\s*' + NUM));
   if(sp){
-    const n = numOf(toHalf(sp[2]).replace('/','.'));
-    qty = n * SPOON[sp[1]];
+    qty = fracNum(sp[2]) * SPOON[sp[1]];
     unit = 'ml';
-    t = t.replace(sp[0], '');
+    t = t.slice(0, t.indexOf(sp[0]));
   } else {
-    const m = toHalf(t).match(/([0-9]+(?:\.[0-9]+)?)\s*(kg|g|ｇ|L|l|ml|ｍｌ|cc|個|本|枚|尾|袋|パック|片|玉|束|缶)/i);
+    const m = t.match(new RegExp(NUM + '\\s*(kg|g|ｇ|L|l|ml|ｍｌ|cc|個|本|枚|尾|袋|パック|片|玉|束|缶|株|かけ|粒|房)', 'i'));
     if(m){
-      qty = parseFloat(m[1]);
+      qty = fracNum(m[1]);
       unit = m[2].toLowerCase();
       if(unit==='kg'){ qty*=1000; unit='g'; }
       if(unit==='l'){ qty*=1000; unit='ml'; }
       if(unit==='cc'){ unit='ml'; }
       if(unit==='ｇ'){ unit='g'; }
       if(unit==='ｍｌ'){ unit='ml'; }
-      // 分量部分を名前から取り除く
-      const idx = toHalf(t).indexOf(m[0]);
-      if(idx>=0) t = t.slice(0, idx);
+      t = t.slice(0, t.indexOf(m[0]));
     }
   }
-  const name = t.replace(/[：:\s]+$/,'').replace(/[（(].*?[）)]/g,'').trim();
+  qty = Math.round(qty*1000)/1000;
+  const name = t.replace(/[（(].*?[）)]/g,'').replace(/\s*(\d*\s*つまみ.*|ひとつまみ.*|少々.*|適量.*|適宜.*|お好みで.*|程度.*)$/,'').replace(/[：:\s…‥・\.]+$/,'').trim();
   if(!name) return null;
   return { name: name, qty: qty, unit: unit || 'g' };
 }
@@ -738,13 +756,17 @@ function toKata(s){
   return String(s||'').replace(/[\u3041-\u3096]/g, c=>String.fromCharCode(c.charCodeAt(0)+0x60));
 }
 // 「みじん切り」「500g」などを取り除いて比較用の名前にする
-const CUT_WORDS = ['ミジンギリ','アラミジン','センギリ','ホソギリ','ウスギリ','カクギリ','スライス','スリオロシ','オロシ','キザミ','カット','レイトウ','コクサン'];
+const CUT_WORDS = ['粗ミジン切リ','ミジン切リ','ミジンギリ','アラミジン','粗ミジン','ミジン','千切リ','センギリ','細切リ','ホソギリ','薄切リ','ウスギリ','角切リ','カクギリ','乱切リ','スライス','スリオロシ','オロシ','刻ミ','キザミ','カット','レイトウ','コクサン'];
 function normName(s){
   let t = toKata(s);
   t = t.replace(/[\u3000\s\u30fb（）()【】\[\]]/g,'');
-  t = t.replace(/[0-9０-９]+(?:\.[0-9]+)?[A-Za-zＡ-Ｚｇｍｌ㎏㎖]*/g,'');
+  t = t.replace(/[0-9０-９]+(?:[.．][0-9０-９]+)?[A-Za-zＡ-Ｚａ-ｚ㎏㎖]*/g,'');
   t = t.replace(/[＊*#].*$/,'');
   CUT_WORDS.forEach(w=>{ t = t.split(w).join(''); });
+  // 言い換えをそろえる
+  t = t.replace(/ヒキ肉|挽キ肉|挽肉|ヒキニク/g,'ミンチ');
+  t = t.replace(/カレー粉/g,'カレーパウダー');
+  t = t.replace(/味醂/g,'ミリン').replace(/ショウ油|ショウユ/g,'醤油');
   return t;
 }
 // 一番長く一致する文字数
@@ -769,6 +791,26 @@ const NAME_ALIAS = {
   'ショウユ': 'キミセ　純醤油',
   '濃口醤油': 'キミセ　純醤油',
   '濃口醬油': 'キミセ　純醤油',
+  '砂糖': 'きびあじ',
+  '上白糖': '上白糖',
+  'バター': 'パーチバター無縁　四つ葉',
+  'パン粉': '焙焼作り生パン粉A（12㎜）　雪和　１K',
+  '白ワインビネガー': 'ワインビネガー白マイユ',
+  '生クリーム': 'フレッシュ40',
+  '生クリーム（乳脂肪40%）': 'フレッシュ40',
+  '純生クリーム': 'フレッシュ40',
+  'マヨ': 'マヨネーズ　QP',
+  '豚肩ロース': '国産豚肉　（生）肩ロース',
+  '豚ロース': '国産　（生）　豚ロース',
+  '豚フィレ': '国産　冷凍　豚フィレ',
+  '鶏むね肉': '熟成鶏鶏むね　２K',
+  '鶏胸肉': '熟成鶏鶏むね　２K',
+  '鶏もも肉': '熟成鶏もも肉　広島県産　２K',
+  '鶏モモ肉': '熟成鶏もも肉　広島県産　２K',
+  '鶏レバー': '熟成鶏肝　広島県産（冷蔵）　2㎏',
+  '鶏皮': '国産　鶏皮　（冷凍）　2K',
+  '手羽先': '鶏肉　手羽先　２ｋ　33個',
+  '無塩バター': 'パーチバター無縁　四つ葉',
 };
 // 食材マスターから一番近いものを探す（誤照合を防ぐ厳しめ判定）
 function findIngByName(name){
@@ -787,12 +829,17 @@ function findIngByName(name){
     const c = normName(i.name);
     if(!c) continue;
     if(c === q) return i;                                   // 完全一致
-    if(q.indexOf(c)>=0 || c.indexOf(q)>=0){                 // どちらかが相手を含む
-      cands.push({sc:3, tb:-c.length, ing:i}); continue;
+    // どちらかが相手を含む（ただし短すぎる一致は除く：「豆腐」→「豆腐専用にがり」を防ぐ）
+    if(q.indexOf(c)>=0 || c.indexOf(q)>=0){
+      const ratio = Math.min(q.length,c.length) / Math.max(q.length,c.length);
+      if(ratio >= 0.3){ cands.push({sc:3, tb:-c.length, ing:i}); }
+      continue;
     }
-    // 部分一致：3文字以上一致し、かつ頭2文字が含まれること
-    if(q.length>=2 && lcsLen(q,c)>=3 && c.indexOf(q.slice(0,2))>=0){
-      cands.push({sc:2, tb:lcsLen(q,c), ing:i});
+    // 部分一致：4文字以上が続けて一致し、頭2文字も含み、名前の6割以上が一致
+    // （「ロースト」→「ロース」、「生クリーム」→「クリームチーズ」のような誤りを防ぐ）
+    const L = (q.length>=4) ? lcsLen(q,c) : 0;
+    if(L>=4 && c.indexOf(q.slice(0,2))>=0 && L/q.length >= 0.6){
+      cands.push({sc:2, tb:L, ing:i});
     }
   }
   if(!cands.length) return null;
@@ -824,10 +871,20 @@ function runImport(){
   }
   if(!items.length){ showToast('⚠️ 材料を読み取れませんでした'); return; }
 
-  // 食材マスターと照合
+  openImportDraft({ name: name, items: items, source: '貼り付け' });
+}
+
+// 取り込んだ材料を食材マスターと照合して、編集画面を開く（共通）
+function openImportDraft(o){
+  const s = load();
   let matched = 0;
-  const ings = items.map(it=>{
-    const hit = findIngByName(it.name);
+  const ings = (o.items||[]).map(it=>{
+    let hit = null;
+    // 食材マスターを共有しているアプリは、IDでそのまま一致させる
+    if(it.ingId !== undefined && it.ingId !== null && it.ingId !== ''){
+      hit = s.ingredients.find(i=>String(i.id)===String(it.ingId)) || null;
+    }
+    if(!hit) hit = findIngByName(it.name);
     if(hit) matched++;
     return {
       ingId: hit ? hit.id : null,
@@ -837,22 +894,172 @@ function runImport(){
       _srcName: it.name
     };
   });
-
-  // 照合できなかったものは先頭の食材を仮置き（画面で選び直せる）
-  const s = load();
-  ings.forEach(r=>{ if(!r.ingId && s.ingredients.length) r.ingId = null; });
-
+  const total = (o.items||[]).length;
   const draft = {
-    id:null, name:name||'取込レシピ', category:'メイン料理',
-    baseServings:1, baseQty:0, baseUnit:'g', servingQty:null,
-    notes:'レシピ帳から取込（'+matched+'/'+items.length+'件を自動照合）',
+    id:null, name: o.name || '取込レシピ', category: o.category || 'メイン料理',
+    baseServings:1, baseQty: o.baseQty || 0, baseUnit: o.baseUnit || 'g', servingQty:null, cookYield:100,
+    notes: o.source+'から取込（'+matched+'/'+total+'件を自動照合）',
     ingredients: ings, steps: []
   };
   closeRecipeModal();
   setTimeout(()=>{
     openRecipeEdit(null, draft);
-    showToast('✅ '+items.length+'件中 '+matched+'件を照合しました');
+    showToast('✅ '+total+'件中 '+matched+'件を照合しました');
   }, 150);
+}
+
+// ===================================================
+// 他のアプリと直接つなぐ（レシピ帳・お惣菜レシピ帳）
+// ===================================================
+const LINKED_APPS = {
+  notebook: {
+    label: 'レシピ帳',
+    url:   'https://script.google.com/macros/s/AKfycbxM9X42D0mF4Xq_xwHmAnppnXXw3zw5agkouTljGHuZvLaQ4FFYJmu8SIk1xUBJB3dB/exec',
+    query: '?key=recipe-sync'
+  },
+  sozai: {
+    label: 'お惣菜レシピ帳',
+    url:   'https://script.google.com/macros/s/AKfycbyJzQwMpxfb2PTApjCINyjyHMLUjPpEM4RADrINKXw8N8QVtDIzB1ZTKTCqLCm6ToZMKQ/exec',
+    query: '?action=load'
+  }
+};
+let _linkedKey = '', _linkedList = [];
+
+// 相手アプリのカテゴリーを、こちらのカテゴリーに寄せる
+function mapLinkedCategory(c){
+  c = String(c||'');
+  if(/ソース|調味料|下地|ドレッシング|たれ|タレ/.test(c)) return 'ソース・下地';
+  if(/豚/.test(c)) return '豚肉料理';
+  if(/鶏/.test(c)) return '鶏肉料理';
+  if(/魚|海鮮/.test(c)) return '魚料理';
+  if(/卵/.test(c)) return '卵料理';
+  if(/豆腐/.test(c)) return '豆腐料理';
+  if(/野菜|サラダ/.test(c)) return '野菜料理';
+  if(/スープ/.test(c)) return 'スープ';
+  if(/デザート|スイーツ/.test(c)) return 'デザート';
+  if(/ドリンク|飲/.test(c)) return 'ドリンク';
+  if(/肉|メイン/.test(c)) return 'メイン料理';
+  return 'その他';
+}
+
+// 題名の「（約130ml）」から出来上がり量を拾う
+function yieldFromTitle(t){
+  const m = toHalf(String(t||'')).match(/約\s*([0-9]+(?:\.[0-9]+)?)\s*(g|ml|ｇ|cc)/i);
+  if(!m) return null;
+  return { qty: parseFloat(m[1]), unit: /ml|cc/i.test(m[2]) ? 'ml' : 'g' };
+}
+
+// レシピ帳の形 → 共通の形
+function normalizeNotebook(j){
+  const p = (typeof j.data === 'string') ? JSON.parse(j.data) : (j.data || {});
+  return (p.recipes || []).map(r=>{
+    const text = r.ingredients || '';
+    return {
+      title: r.title || '', category: r.category || '',
+      items: String(text).split(/\r?\n/).map(parseImportLine).filter(Boolean),
+      preview: String(text).split(/\r?\n/).filter(x=>x.trim()).slice(0,2).join(' / ')
+    };
+  });
+}
+
+// お惣菜レシピ帳の形 → 共通の形（材料が文字でも一覧でも受け取れるように）
+function normalizeSozai(j){
+  const d = j.data || {};
+  return (d.recipes || []).map(r=>{
+    const src = r.ingredients || r.items || r.ings || [];
+    let items = [];
+    if(typeof src === 'string'){
+      items = src.split(/\r?\n/).map(parseImportLine).filter(Boolean);
+    } else if(Array.isArray(src)){
+      items = src.map(it=>{
+        if(typeof it === 'string') return parseImportLine(it);
+        const q = (it.qty!=null) ? it.qty : (it.g!=null ? it.g : (it.grams!=null ? it.grams : it.amount));
+        return {
+          name:  it.name || it.ingName || it.label || '',
+          qty:   numOf(q),
+          unit:  it.unit || 'g',
+          ingId: (it.ingId!=null) ? it.ingId : (it.id!=null ? it.id : null)
+        };
+      }).filter(x=>x && (x.name || x.ingId!=null));
+    }
+    return {
+      title: r.name || r.title || '', category: r.category || '',
+      items: items,
+      preview: items.slice(0,2).map(x=>x.name+' '+(x.qty||'')+(x.unit||'')).join(' / ')
+    };
+  });
+}
+
+async function loadLinked(key){
+  const app = LINKED_APPS[key];
+  const box = document.getElementById('imp-linked');
+  if(!app || !box) return;
+  _linkedKey = key; _linkedList = [];
+  box.style.display = '';
+  box.innerHTML = '<div style="text-align:center;padding:16px;font-size:13px;color:var(--mid)">'+app.label+'を読み込み中…</div>';
+  try{
+    const res = await fetch(app.url + app.query + '&t=' + Date.now());
+    const j = await res.json();
+    if(!j || !j.ok) throw new Error((j && j.error) || '読み込めませんでした');
+    _linkedList = (key==='notebook') ? normalizeNotebook(j) : normalizeSozai(j);
+    _linkedList = _linkedList.filter(r=>r.title || r.items.length);
+    renderLinked('');
+  }catch(e){
+    box.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--red);background:#fdecea;border-radius:8px">⚠️ '+esc(app.label)+'を読み込めませんでした（'+esc(e.message)+'）</div>';
+  }
+}
+
+function renderLinked(q){
+  const box = document.getElementById('imp-linked');
+  const app = LINKED_APPS[_linkedKey];
+  const s = load();
+  const have = new Set((s.recipes||[]).map(r=>String(r.name||'').replace(/\s/g,'')));
+  const qq = String(q||'').trim().toLowerCase();
+  const list = _linkedList
+    .map((r,i)=>({r:r,i:i}))
+    .filter(x=>!qq || x.r.title.toLowerCase().includes(qq) || x.r.preview.toLowerCase().includes(qq));
+
+  let htmlStr =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+      '<div style="font-size:13px;font-weight:700">'+esc(app.label)+'（'+_linkedList.length+'件）</div>'+
+      '<button type="button" onclick="document.getElementById(\'imp-linked\').style.display=\'none\'" style="background:none;border:none;font-size:12px;color:var(--mid);cursor:pointer">閉じる</button>'+
+    '</div>';
+  if(!_linkedList.length){
+    box.innerHTML = htmlStr + '<div style="padding:14px;text-align:center;font-size:13px;color:var(--mid);background:var(--light);border-radius:8px">'+esc(app.label)+'にはまだレシピがありません</div>';
+    return;
+  }
+  htmlStr +=
+    '<input id="imp-linked-q" value="'+esc(q||'')+'" oninput="renderLinked(this.value)" placeholder="🔍 レシピ名で絞り込み" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;margin-bottom:6px;-webkit-appearance:none">'+
+    '<div style="max-height:320px;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px;background:#fff">'+
+    (list.length ? list.map(x=>{
+      const done = have.has(String(x.r.title).replace(/\s/g,''));
+      return '<div onclick="pickLinked('+x.i+')" style="padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer">'+
+        '<div style="display:flex;align-items:center;gap:6px">'+
+          '<div style="flex:1;font-size:14px;font-weight:700;line-height:1.4">'+esc(x.r.title||'（名前なし）')+'</div>'+
+          (done ? '<span style="font-size:12px;background:var(--light);color:var(--mid);border-radius:10px;padding:1px 8px;white-space:nowrap">登録済み</span>' : '')+
+        '</div>'+
+        '<div style="font-size:12px;color:var(--mid);margin-top:2px">'+esc(x.r.category||'')+(x.r.category?'　':'')+'材料'+x.r.items.length+'件'+(x.r.preview?'　'+esc(x.r.preview):'')+'</div>'+
+      '</div>';
+    }).join('') : '<div style="padding:14px;text-align:center;font-size:13px;color:var(--mid)">該当なし</div>')+
+    '</div>';
+  box.innerHTML = htmlStr;
+  const qi = document.getElementById('imp-linked-q');
+  if(qi && q){ qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+}
+
+function pickLinked(i){
+  const r = _linkedList[i];
+  if(!r) return;
+  if(!r.items.length){ showToast('⚠️ このレシピには材料が入っていません'); return; }
+  const y = yieldFromTitle(r.title);
+  openImportDraft({
+    name: r.title,
+    items: r.items,
+    source: LINKED_APPS[_linkedKey].label,
+    category: mapLinkedCategory(r.category),
+    baseQty: y ? y.qty : 0,
+    baseUnit: y ? y.unit : 'g'
+  });
 }
 
 // ===================================================
